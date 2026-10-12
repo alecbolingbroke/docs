@@ -12,7 +12,7 @@
  *       fieldroutes-swagger-docs.yaml              (canonical — single source of truth)
  *       fieldroutes-swagger-docs.json
  *       fieldroutes-swagger-docs.with-summaries.yaml
- * Also keeps docs/upstream.json (raw vendor) for reference / change detection.
+ * Also keeps fieldroutes/upstream.json (raw vendor) for reference / change detection.
  *
  * Note: the FIRST run normalizes the canonical YAML to js-yaml formatting (one big,
  * one-time diff). After that, js-yaml output is deterministic, so weekly PRs are
@@ -29,7 +29,7 @@ const SPEC_URL = "https://fieldroutes.dev/resources/swagger.js";
 // snapshot of the vendor's prose (limits, FAQ, examples) — see snapshotPages().
 const TEMPLATES_URL = "https://fieldroutes.dev/templates/HEAD";
 const WATCHED_PAGES = ["home", "examples", "faq"];
-const DOCS = path.join(__dirname, "docs");
+const DOCS = path.join(__dirname, "fieldroutes");
 const PAGES_DIR = path.join(DOCS, "upstream-pages");
 const CANONICAL_YAML = path.join(DOCS, "fieldroutes-swagger-docs.yaml");
 const CANONICAL_JSON = path.join(DOCS, "fieldroutes-swagger-docs.json");

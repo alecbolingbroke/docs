@@ -45,15 +45,15 @@ jobs:
             **Review** the additions in the spec-file diffs below. If FR introduced a
             new doc *error*, add a fix to `corrections.yaml`. No-op if nothing changed.
 
-            `docs/upstream-pages/*.txt` are plain-text snapshots of fieldroutes.dev's
+            `fieldroutes/upstream-pages/*.txt` are plain-text snapshots of fieldroutes.dev's
             **/home, /examples and /faq** pages. A diff there means FieldRoutes changed
             its prose — rate limits, FAQ answers, example workflows. Those aren't in the
             OpenAPI spec, so if the change matters, mirror it into the overview in
             `corrections.yaml` (`info.description`).
           add-paths: |
-            docs/fieldroutes-swagger-docs.yaml
-            docs/fieldroutes-swagger-docs.json
-            docs/fieldroutes-swagger-docs.with-summaries.yaml
-            docs/fieldroutes-swagger-docs.with-summaries.json
-            docs/upstream.json
-            docs/upstream-pages
+            fieldroutes/fieldroutes-swagger-docs.yaml
+            fieldroutes/fieldroutes-swagger-docs.json
+            fieldroutes/fieldroutes-swagger-docs.with-summaries.yaml
+            fieldroutes/fieldroutes-swagger-docs.with-summaries.json
+            fieldroutes/upstream.json
+            fieldroutes/upstream-pages

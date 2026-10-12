@@ -17,9 +17,9 @@ the vendor's published documentation is incomplete and, in places, wrong:
 
 ## 📖 Live documentation
 
-- **[Reference](https://alecbolingbroke.github.io/fieldroutes-docs/docs)** — ReDoc, grouped into six sections across 62 entities. The overview carries a glossary, the limits worth designing around, common workflows, and an FAQ.
-- **[Try it](https://alecbolingbroke.github.io/fieldroutes-docs/docs/index.html#swagger)** — run real calls against your own tenant (see below)
-- **[YAML](https://alecbolingbroke.github.io/fieldroutes-docs/docs/index.html#yaml)** / **[JSON](https://alecbolingbroke.github.io/fieldroutes-docs/docs/index.html#json)** — the raw spec
+- **[Reference](https://alecbolingbroke.github.io/docs/fieldroutes/)** — ReDoc, grouped into six sections across 62 entities. The overview carries a glossary, the limits worth designing around, common workflows, and an FAQ.
+- **[Try it](https://alecbolingbroke.github.io/docs/fieldroutes/index.html#swagger)** — run real calls against your own tenant (see below)
+- **[YAML](https://alecbolingbroke.github.io/docs/fieldroutes/index.html#yaml)** / **[JSON](https://alecbolingbroke.github.io/docs/fieldroutes/index.html#json)** — the raw spec
 
 ## 🔑 Testing against your own tenant
 
@@ -48,7 +48,7 @@ live API:
 
 ## 🐛 Something look off?
 
-**[Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues)** — a wrong
+**[Open an issue](https://github.com/alecbolingbroke/docs/issues)** — a wrong
 description, a stale field, a missing endpoint, an example that no longer works. Include the
 endpoint and what you actually observed from the API. Corrections get folded into
 `corrections.yaml` so they survive the next upstream sync.
@@ -69,8 +69,8 @@ MCP server or a generated SDK:
 | `x-fr-write` | `true` on every mutating operation — gate writes, or expose a read-only surface by default |
 | `produces` | Corrected to `application/json` (the vendor declares `text/html`, which 406s) |
 
-Machine-readable outputs: `docs/fieldroutes-swagger-docs.json` (canonical) and
-`docs/fieldroutes-swagger-docs.with-summaries.json` (adds prettified operation titles).
+Machine-readable outputs: `fieldroutes/fieldroutes-swagger-docs.json` (canonical) and
+`fieldroutes/fieldroutes-swagger-docs.with-summaries.json` (adds prettified operation titles).
 
 ## 🔄 How the sync works
 
@@ -79,7 +79,7 @@ and opens a PR only when something actually changed upstream:
 
 1. **Fetch** the vendor spec from `fieldroutes.dev/resources/swagger.js` (a static file
    embedding the full OpenAPI 2.0 document as `window.swagger`) → saved raw to
-   `docs/upstream.json`.
+   `fieldroutes/upstream.json`.
 2. **Merge additively** into the canonical spec — new endpoints, parameters and definitions
    are added; nothing is ever removed, so the extra endpoints and richer parameters survive.
    Vendor *changes* to existing fields are deliberately **not** auto-applied; overriding is
@@ -91,7 +91,7 @@ and opens a PR only when something actually changed upstream:
    automatically. A brand-new *entity* is logged loudly rather than silently bucketed.
 5. **Regenerate** the four published files the site loads.
 6. **Snapshot the vendor's prose pages** — `/home`, `/examples` and `/faq` are rendered from
-   the site's SPA template bundle to plain text in `docs/upstream-pages/`. A diff there means
+   the site's SPA template bundle to plain text in `fieldroutes/upstream-pages/`. A diff there means
    FieldRoutes changed its stated rate limits, FAQ answers, or example workflows — none of
    which live in the OpenAPI spec, so nothing else would catch it.
 
@@ -107,11 +107,11 @@ npx swagger-ui-watcher docs/fieldroutes-swagger-docs.yaml
 
 Operation summaries are prettified from `operationId` (e.g. `customerSearch` →
 "Customer search") into the `.with-summaries.yaml` variant. `sync-spec.js` regenerates it;
-`docs/generate-summaries.js` does it standalone.
+`fieldroutes/generate-summaries.js` does it standalone.
 
 ## 🚀 Deployment
 
-`docs/` deploys to GitHub Pages via GitHub Actions on every push to `main`
+`fieldroutes/` deploys to GitHub Pages via GitHub Actions on every push to `main`
 ([`.github/workflows/pages.yml`](.github/workflows/pages.yml)). Note that the legacy
 "deploy from a branch" Pages build is deprecated and silently stopped working — the Pages
 source must stay set to **GitHub Actions**.
@@ -120,16 +120,16 @@ source must stay set to **GitHub Actions**.
 
 | Path | What it is |
 | --- | --- |
-| `docs/fieldroutes-swagger-docs.yaml` | Canonical spec — the single source of truth |
-| `docs/fieldroutes-swagger-docs.json` | JSON rendering of the same spec |
-| `docs/fieldroutes-swagger-docs.with-summaries.yaml` | Generated; adds prettified operation summaries |
-| `docs/fieldroutes-swagger-docs.with-summaries.json` | JSON twin of the above — what the viewer fetches, and the drop-in input for codegen |
-| `docs/upstream.json` | Raw vendor spec, never hand-edited — reference and change detection |
-| `docs/upstream-pages/*.txt` | Text snapshots of fieldroutes.dev `/home`, `/examples`, `/faq` |
+| `fieldroutes/fieldroutes-swagger-docs.yaml` | Canonical spec — the single source of truth |
+| `fieldroutes/fieldroutes-swagger-docs.json` | JSON rendering of the same spec |
+| `fieldroutes/fieldroutes-swagger-docs.with-summaries.yaml` | Generated; adds prettified operation summaries |
+| `fieldroutes/fieldroutes-swagger-docs.with-summaries.json` | JSON twin of the above — what the viewer fetches, and the drop-in input for codegen |
+| `fieldroutes/upstream.json` | Raw vendor spec, never hand-edited — reference and change detection |
+| `fieldroutes/upstream-pages/*.txt` | Text snapshots of fieldroutes.dev `/home`, `/examples`, `/faq` |
 | `corrections.yaml` | Fixes + overlay applied on top of the merge; also holds the published overview/glossary |
 | `sync-spec.js` | The weekly sync pipeline |
-| `docs/index.html` | Multi-format documentation viewer |
-| `docs/generate-summaries.js` | Standalone summary prettifier |
+| `fieldroutes/index.html` | Multi-format documentation viewer |
+| `fieldroutes/generate-summaries.js` | Standalone summary prettifier |
 
 ## License
 

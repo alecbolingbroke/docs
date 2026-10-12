@@ -1,8 +1,10 @@
 name: Deploy Pages
 
 # Replaces the deprecated legacy "deploy from a branch" Pages build.
-# Publishes docs/ on every push to main (and on demand), preserving the
-# /fieldroutes-docs/docs/ URL path.
+# Publishes every project folder on push to main (and on demand):
+#   index.html     -> /docs/             (the project index)
+#   fieldroutes/   -> /docs/fieldroutes/
+# Add a project: create its folder, add it to the cp line below and to index.html.
 
 on:
   push:
@@ -27,8 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Stage site (keep the /docs/ URL path)
-        run: mkdir -p _site && cp -r docs _site/docs
+      - name: Stage site
+        run: mkdir -p _site && cp index.html _site/ && cp -r fieldroutes _site/fieldroutes
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

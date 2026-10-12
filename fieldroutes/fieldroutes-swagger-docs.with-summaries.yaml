@@ -18,7 +18,7 @@ info:
     For account-specific or support issues, contact **apisupport@fieldroutes.com**.
 
     **Spot an error, a stale field, or a missing endpoint?**
-    [Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues) —
+    [Open an issue](https://github.com/alecbolingbroke/docs/issues) —
     corrections are welcome and get folded into the next sync.
 
     ## Getting started
@@ -339,7 +339,7 @@ info:
     vendor's docs are wrong. See the caveat below.
 
     **Something looks wrong here.**
-    [Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues) with
+    [Open an issue](https://github.com/alecbolingbroke/docs/issues) with
     the endpoint and what you observed. For account, key, or platform issues, go to
     **apisupport@fieldroutes.com** instead.
 
@@ -348,7 +348,7 @@ info:
 paths:
   /subscription/search:
     post:
-      summary: search
+      summary: Subscription Search
       operationId: subscriptionSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -544,7 +544,7 @@ paths:
         - subscription
   /subscription/get:
     post:
-      summary: getBulk
+      summary: Subscription Get Bulk
       operationId: subscriptionGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -581,7 +581,7 @@ paths:
         - subscription
   /subscription/[id]:
     post:
-      summary: getSingle
+      summary: Subscription Get ID
       operationId: subscriptionGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -611,7 +611,7 @@ paths:
         - subscription
   /subscription/create:
     post:
-      summary: create
+      summary: Subscription Create
       operationId: subscriptionCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -865,7 +865,7 @@ paths:
       x-fr-write: true
   /subscription/update:
     post:
-      summary: update
+      summary: Subscription Update
       operationId: subscriptionUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -1121,7 +1121,7 @@ paths:
       x-fr-write: true
   /subscription/getInitialAddOns:
     post:
-      summary: getInitialAddOns
+      summary: Subscription Get Initial Add Ons
       operationId: subscriptionGetInitialAddOns
       consumes:
         - application/x-www-form-urlencoded
@@ -1146,7 +1146,7 @@ paths:
         - subscription
   /subscription/createInitialAddOn:
     post:
-      summary: createInitialAddOn
+      summary: Subscription Create Initial Add On
       operationId: subscriptionCreateInitialAddOn
       consumes:
         - application/x-www-form-urlencoded
@@ -1207,7 +1207,7 @@ paths:
       x-fr-write: true
   /subscription/updateInitialAddOn:
     post:
-      summary: updateInitialAddOn
+      summary: Subscription Update Initial Add On
       operationId: subscriptionUpdateInitialAddOn
       consumes:
         - application/x-www-form-urlencoded
@@ -1273,7 +1273,7 @@ paths:
       x-fr-write: true
   /subscription/deleteInitialAddOn:
     post:
-      summary: deleteInitialAddOn
+      summary: Subscription Delete Initial Add On
       operationId: subscriptionDeleteInitialAddOn
       consumes:
         - application/x-www-form-urlencoded
@@ -1304,7 +1304,7 @@ paths:
       x-fr-write: true
   /subscription/setInitialAddOns:
     post:
-      summary: setInitialAddOns
+      summary: Subscription Set Initial Add Ons
       operationId: subscriptionSetInitialAddOns
       consumes:
         - application/x-www-form-urlencoded
@@ -1338,7 +1338,7 @@ paths:
       x-fr-write: true
   /subscription/updateLeadStage:
     post:
-      summary: updateLeadStage
+      summary: Subscription Update Lead Stage
       operationId: subscriptionUpdateLeadStage
       consumes:
         - application/x-www-form-urlencoded
@@ -1384,7 +1384,7 @@ paths:
       x-fr-write: true
   /subscription/delete:
     post:
-      summary: delete
+      summary: Subscription Delete
       operationId: subscriptionDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -1410,7 +1410,7 @@ paths:
       x-fr-write: true
   /customer/search:
     post:
-      summary: search
+      summary: Customer Search
       operationId: customerSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -1587,7 +1587,7 @@ paths:
         - customer
   /customer/get:
     post:
-      summary: getBulk
+      summary: Customer Get Bulk
       operationId: customerGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -1639,7 +1639,7 @@ paths:
         - customer
   /customer/[id]:
     post:
-      summary: getSingle
+      summary: Customer Get ID
       operationId: customerGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -1684,7 +1684,7 @@ paths:
         - customer
   /customer/createPaymentProfile:
     post:
-      summary: createPaymentProfile
+      summary: Customer Create Payment Profile
       operationId: customerCreatePaymentProfile
       consumes:
         - application/x-www-form-urlencoded
@@ -1720,7 +1720,7 @@ paths:
       x-fr-write: true
   /customer/updatePaymentProfile:
     post:
-      summary: updatePaymentProfile
+      summary: Customer Update Payment Profile
       operationId: customerUpdatePaymentProfile
       consumes:
         - application/x-www-form-urlencoded
@@ -1776,7 +1776,7 @@ paths:
       x-fr-write: true
   /customer/create:
     post:
-      summary: create
+      summary: Customer Create
       operationId: customerCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -2158,7 +2158,7 @@ paths:
       x-fr-write: true
   /customer/update:
     post:
-      summary: update
+      summary: Customer Update
       operationId: customerUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -2544,7 +2544,7 @@ paths:
       x-fr-write: true
   /customerFlag/search:
     post:
-      summary: search
+      summary: Customer Flag Search
       operationId: customerFlagSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -2585,7 +2585,7 @@ paths:
         - customerFlag
   /customerFlag/get:
     post:
-      summary: getBulk
+      summary: Customer Flag Get Bulk
       operationId: customerFlagGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -2619,7 +2619,7 @@ paths:
         - customerFlag
   /customerFlag/[id]:
     post:
-      summary: getSingle
+      summary: Customer Flag Get ID
       operationId: customerFlagGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -2646,7 +2646,7 @@ paths:
         - customerFlag
   /customerFlag/update:
     post:
-      summary: update
+      summary: Customer Flag Update
       operationId: customerFlagUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -2712,7 +2712,7 @@ paths:
       x-fr-write: true
   /ticket/search:
     post:
-      summary: search
+      summary: Ticket Search
       operationId: ticketSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -2808,7 +2808,7 @@ paths:
         - ticket
   /ticket/get:
     post:
-      summary: getBulk
+      summary: Ticket Get Bulk
       operationId: ticketGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -2835,7 +2835,7 @@ paths:
         - ticket
   /ticket/[id]:
     post:
-      summary: getSingle
+      summary: Ticket Get ID
       operationId: ticketGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -2855,7 +2855,7 @@ paths:
         - ticket
   /ticket/create:
     post:
-      summary: create
+      summary: Ticket Create
       operationId: ticketCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -2940,7 +2940,7 @@ paths:
       x-fr-write: true
   /ticket/update:
     post:
-      summary: update
+      summary: Ticket Update
       operationId: ticketUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -3028,7 +3028,7 @@ paths:
       x-fr-write: true
   /ticket/delete:
     post:
-      summary: delete
+      summary: Ticket Delete
       operationId: ticketDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -3054,7 +3054,7 @@ paths:
       x-fr-write: true
   /ticket/getAddOns:
     post:
-      summary: getAddOns
+      summary: Ticket Get Add Ons
       operationId: ticketGetAddOns
       consumes:
         - application/x-www-form-urlencoded
@@ -3079,7 +3079,7 @@ paths:
         - ticket
   /ticket/createAddOn:
     post:
-      summary: createAddOn
+      summary: Ticket Create Add On
       operationId: ticketCreateAddOn
       consumes:
         - application/x-www-form-urlencoded
@@ -3150,7 +3150,7 @@ paths:
       x-fr-write: true
   /ticket/updateAddOn:
     post:
-      summary: updateAddOn
+      summary: Ticket Update Add On
       operationId: ticketUpdateAddOn
       consumes:
         - application/x-www-form-urlencoded
@@ -3221,7 +3221,7 @@ paths:
       x-fr-write: true
   /ticket/setAddOns:
     post:
-      summary: setAddOns
+      summary: Ticket Set Add Ons
       operationId: ticketSetAddOns
       consumes:
         - application/x-www-form-urlencoded
@@ -3255,7 +3255,7 @@ paths:
       x-fr-write: true
   /ticket/deleteAddOn:
     post:
-      summary: deleteAddOn
+      summary: Ticket Delete Add On
       operationId: ticketDeleteAddOn
       consumes:
         - application/x-www-form-urlencoded
@@ -3286,7 +3286,7 @@ paths:
       x-fr-write: true
   /appointment/search:
     post:
-      summary: search
+      summary: Appointment Search
       operationId: appointmentSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -3434,7 +3434,7 @@ paths:
         - appointment
   /appointment/get:
     post:
-      summary: getBulk
+      summary: Appointment Get Bulk
       operationId: appointmentGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -3486,7 +3486,7 @@ paths:
         - appointment
   /appointment/[id]:
     post:
-      summary: getSingle
+      summary: Appointment Get ID
       operationId: appointmentGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -3531,7 +3531,7 @@ paths:
         - appointment
   /appointment/create:
     post:
-      summary: create
+      summary: Appointment Create
       operationId: appointmentCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -3685,7 +3685,7 @@ paths:
       x-fr-write: true
   /appointment/update:
     post:
-      summary: update
+      summary: Appointment Update
       operationId: appointmentUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -3885,7 +3885,7 @@ paths:
       x-fr-write: true
   /appointment/cancel:
     post:
-      summary: cancel
+      summary: Appointment Cancel
       operationId: appointmentCancel
       consumes:
         - application/x-www-form-urlencoded
@@ -3922,7 +3922,7 @@ paths:
       x-fr-write: true
   /appointment/complete:
     post:
-      summary: complete
+      summary: Appointment Complete
       operationId: appointmentComplete
       consumes:
         - application/x-www-form-urlencoded
@@ -4075,7 +4075,7 @@ paths:
       x-fr-write: true
   /employee/search:
     post:
-      summary: search
+      summary: Employee Search
       operationId: employeeSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -4177,7 +4177,7 @@ paths:
         - employee
   /employee/get:
     post:
-      summary: getBulk
+      summary: Employee Get Bulk
       operationId: employeeGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -4209,7 +4209,7 @@ paths:
         - employee
   /employee/[id]:
     post:
-      summary: getSingle
+      summary: Employee Get ID
       operationId: employeeGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -4234,7 +4234,7 @@ paths:
         - employee
   /employee/create:
     post:
-      summary: create
+      summary: Employee Create
       operationId: employeeCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -4417,7 +4417,7 @@ paths:
       x-fr-write: true
   /employee/update:
     post:
-      summary: update
+      summary: Employee Update
       operationId: employeeUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -4610,7 +4610,7 @@ paths:
       x-fr-write: true
   /employee/dealias:
     post:
-      summary: dealias
+      summary: Employee Dealias
       operationId: employeeDealias
       consumes:
         - application/x-www-form-urlencoded
@@ -4651,7 +4651,7 @@ paths:
       x-fr-write: true
   /employee/reset:
     post:
-      summary: reset
+      summary: Employee Reset
       operationId: employeeReset
       consumes:
         - application/x-www-form-urlencoded
@@ -4692,7 +4692,7 @@ paths:
       x-fr-write: true
   /serviceType/search:
     post:
-      summary: search
+      summary: Service Type Search
       operationId: serviceTypeSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -4749,7 +4749,7 @@ paths:
         - serviceType
   /serviceType/get:
     post:
-      summary: getBulk
+      summary: Service Type Get Bulk
       operationId: serviceTypeGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -4781,7 +4781,7 @@ paths:
         - serviceType
   /serviceType/[id]:
     post:
-      summary: getSingle
+      summary: Service Type Get ID
       operationId: serviceTypeGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -4806,7 +4806,7 @@ paths:
         - serviceType
   /payment/search:
     post:
-      summary: search
+      summary: Payment Search
       operationId: paymentSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -4891,7 +4891,7 @@ paths:
         - payment
   /payment/get:
     post:
-      summary: getBulk
+      summary: Payment Get Bulk
       operationId: paymentGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -4918,7 +4918,7 @@ paths:
         - payment
   /payment/[id]:
     post:
-      summary: getSingle
+      summary: Payment Get ID
       operationId: paymentGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -4938,7 +4938,7 @@ paths:
         - payment
   /payment/create:
     post:
-      summary: create
+      summary: Payment Create
       operationId: paymentCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -5019,7 +5019,7 @@ paths:
       x-fr-write: true
   /payment/createRefund:
     post:
-      summary: createRefund
+      summary: Payment Create Refund
       operationId: paymentCreateRefund
       consumes:
         - application/x-www-form-urlencoded
@@ -5060,7 +5060,7 @@ paths:
       x-fr-write: true
   /payment/createWriteoff:
     post:
-      summary: createWriteoff
+      summary: Payment Create Writeoff
       operationId: paymentCreateWriteoff
       consumes:
         - application/x-www-form-urlencoded
@@ -5106,7 +5106,7 @@ paths:
       x-fr-write: true
   /contract/search:
     post:
-      summary: search
+      summary: Contract Search
       operationId: contractSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -5167,7 +5167,7 @@ paths:
         - contract
   /contract/get:
     post:
-      summary: getBulk
+      summary: Contract Get Bulk
       operationId: contractGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -5199,7 +5199,7 @@ paths:
         - contract
   /contract/[id]:
     post:
-      summary: getSingle
+      summary: Contract Get ID
       operationId: contractGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -5224,7 +5224,7 @@ paths:
         - contract
   /contract/create:
     post:
-      summary: create
+      summary: Contract Create
       operationId: contractCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -5282,7 +5282,7 @@ paths:
       x-fr-write: true
   /contract/update:
     post:
-      summary: update
+      summary: Contract Update
       operationId: contractUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -5350,7 +5350,7 @@ paths:
       x-fr-write: true
   /contract/delete:
     post:
-      summary: delete
+      summary: Contract Delete
       operationId: contractDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -5376,7 +5376,7 @@ paths:
       x-fr-write: true
   /review/search:
     post:
-      summary: search
+      summary: Review Search
       operationId: reviewSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -5437,7 +5437,7 @@ paths:
         - review
   /review/get:
     post:
-      summary: getBulk
+      summary: Review Get Bulk
       operationId: reviewGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -5481,7 +5481,7 @@ paths:
         - review
   /review/[id]:
     post:
-      summary: getSingle
+      summary: Review Get ID
       operationId: reviewGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -5518,7 +5518,7 @@ paths:
         - review
   /review/summary:
     post:
-      summary: summary
+      summary: Review Summary
       operationId: reviewSummary
       consumes:
         - application/x-www-form-urlencoded
@@ -5576,7 +5576,7 @@ paths:
         - review
   /review/create:
     post:
-      summary: create
+      summary: Review Create
       operationId: reviewCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -5622,7 +5622,7 @@ paths:
       x-fr-write: true
   /review/update:
     post:
-      summary: update
+      summary: Review Update
       operationId: reviewUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -5673,7 +5673,7 @@ paths:
       x-fr-write: true
   /review/delete:
     post:
-      summary: delete
+      summary: Review Delete
       operationId: reviewDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -5699,7 +5699,7 @@ paths:
       x-fr-write: true
   /note/search:
     post:
-      summary: search
+      summary: Note Search
       operationId: noteSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -5776,7 +5776,7 @@ paths:
         - note
   /note/get:
     post:
-      summary: getBulk
+      summary: Note Get Bulk
       operationId: noteGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -5803,7 +5803,7 @@ paths:
         - note
   /note/[id]:
     post:
-      summary: getSingle
+      summary: Note Get ID
       operationId: noteGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -5823,7 +5823,7 @@ paths:
         - note
   /note/create:
     post:
-      summary: create
+      summary: Note Create
       operationId: noteCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -5899,7 +5899,7 @@ paths:
       x-fr-write: true
   /note/update:
     post:
-      summary: update
+      summary: Note Update
       operationId: noteUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -5980,7 +5980,7 @@ paths:
       x-fr-write: true
   /note/delete:
     post:
-      summary: delete
+      summary: Note Delete
       operationId: noteDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -6011,7 +6011,7 @@ paths:
       x-fr-write: true
   /changelog/search:
     post:
-      summary: search
+      summary: Changelog Search
       operationId: changelogSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -6068,7 +6068,7 @@ paths:
         - changelog
   /changelog/get:
     post:
-      summary: getBulk
+      summary: Changelog Get Bulk
       operationId: changelogGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -6095,7 +6095,7 @@ paths:
         - changelog
   /changelog/[id]:
     post:
-      summary: getSingle
+      summary: Changelog Get ID
       operationId: changelogGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -6115,7 +6115,7 @@ paths:
         - changelog
   /document/search:
     post:
-      summary: search
+      summary: Document Search
       operationId: documentSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -6188,7 +6188,7 @@ paths:
         - document
   /document/get:
     post:
-      summary: getBulk
+      summary: Document Get Bulk
       operationId: documentGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -6220,7 +6220,7 @@ paths:
         - document
   /document/[id]:
     post:
-      summary: getSingle
+      summary: Document Get ID
       operationId: documentGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -6245,7 +6245,7 @@ paths:
         - document
   /document/create:
     post:
-      summary: create
+      summary: Document Create
       operationId: documentCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -6291,7 +6291,7 @@ paths:
       x-fr-write: true
   /document/createEncoded:
     post:
-      summary: createEncoded
+      summary: Document Create Encoded
       operationId: documentCreateEncoded
       consumes:
         - application/x-www-form-urlencoded
@@ -6347,7 +6347,7 @@ paths:
       x-fr-write: true
   /document/update:
     post:
-      summary: update
+      summary: Document Update
       operationId: documentUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -6398,7 +6398,7 @@ paths:
       x-fr-write: true
   /document/delete:
     post:
-      summary: delete
+      summary: Document Delete
       operationId: documentDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -6429,7 +6429,7 @@ paths:
       x-fr-write: true
   /route/search:
     post:
-      summary: search
+      summary: Route Search
       operationId: routeSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -6515,7 +6515,7 @@ paths:
         - route
   /route/get:
     post:
-      summary: getBulk
+      summary: Route Get Bulk
       operationId: routeGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -6559,7 +6559,7 @@ paths:
         - route
   /route/[id]:
     post:
-      summary: getSingle
+      summary: Route Get ID
       operationId: routeGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -6596,7 +6596,7 @@ paths:
         - route
   /route/create:
     post:
-      summary: create
+      summary: Route Create
       operationId: routeCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -6648,7 +6648,7 @@ paths:
       x-fr-write: true
   /route/update:
     post:
-      summary: update
+      summary: Route Update
       operationId: routeUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -6699,7 +6699,7 @@ paths:
       x-fr-write: true
   /route/updateDistanceScore:
     post:
-      summary: updateDistanceScore
+      summary: Route Update Distance Score
       operationId: routeUpdateDistanceScore
       consumes:
         - application/x-www-form-urlencoded
@@ -6727,7 +6727,7 @@ paths:
       x-fr-write: true
   /route/delete:
     post:
-      summary: delete
+      summary: Route Delete
       operationId: routeDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -6753,7 +6753,7 @@ paths:
       x-fr-write: true
   /spot/search:
     post:
-      summary: search
+      summary: Spot Search
       operationId: spotSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -6828,7 +6828,7 @@ paths:
         - spot
   /spot/get:
     post:
-      summary: getBulk
+      summary: Spot Get Bulk
       operationId: spotGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -6887,7 +6887,7 @@ paths:
         - spot
   /spot/[id]:
     post:
-      summary: getSingle
+      summary: Spot Get ID
       operationId: spotGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -6939,7 +6939,7 @@ paths:
         - spot
   /spot/getSimple:
     post:
-      summary: getSimple
+      summary: Spot Get Simple
       operationId: spotGetSimple
       consumes:
         - application/x-www-form-urlencoded
@@ -6966,7 +6966,7 @@ paths:
         - spot
   /spot/reserve:
     post:
-      summary: reserve
+      summary: Spot Reserve
       operationId: spotReserve
       consumes:
         - application/x-www-form-urlencoded
@@ -7006,7 +7006,7 @@ paths:
       x-fr-write: true
   /spot/release:
     post:
-      summary: release
+      summary: Spot Release
       operationId: spotRelease
       consumes:
         - application/x-www-form-urlencoded
@@ -7033,7 +7033,7 @@ paths:
       x-fr-write: true
   /spot/block:
     post:
-      summary: block
+      summary: Spot Block
       operationId: spotBlock
       consumes:
         - application/x-www-form-urlencoded
@@ -7076,7 +7076,7 @@ paths:
       x-fr-write: true
   /spot/unblock:
     post:
-      summary: unblock
+      summary: Spot Unblock
       operationId: spotUnblock
       consumes:
         - application/x-www-form-urlencoded
@@ -7111,7 +7111,7 @@ paths:
       x-fr-write: true
   /genericFlag/search:
     post:
-      summary: search
+      summary: Generic Flag Search
       operationId: genericFlagSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -7176,7 +7176,7 @@ paths:
         - genericFlag
   /genericFlag/get:
     post:
-      summary: getBulk
+      summary: Generic Flag Get Bulk
       operationId: genericFlagGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -7203,7 +7203,7 @@ paths:
         - genericFlag
   /genericFlag/[id]:
     post:
-      summary: getSingle
+      summary: Generic Flag Get ID
       operationId: genericFlagGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -7223,7 +7223,7 @@ paths:
         - genericFlag
   /genericFlag/create:
     post:
-      summary: create
+      summary: Generic Flag Create
       operationId: genericFlagCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -7271,7 +7271,7 @@ paths:
       x-fr-write: true
   /genericFlag/update:
     post:
-      summary: update
+      summary: Generic Flag Update
       operationId: genericFlagUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -7322,7 +7322,7 @@ paths:
       x-fr-write: true
   /genericFlagAssignment/search:
     post:
-      summary: search
+      summary: Generic Flag Assignment Search
       operationId: genericFlagAssignmentSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -7387,7 +7387,7 @@ paths:
         - genericFlagAssignment
   /genericFlagAssignment/get:
     post:
-      summary: getBulk
+      summary: Generic Flag Assignment Get Bulk
       operationId: genericFlagAssignmentGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -7414,7 +7414,7 @@ paths:
         - genericFlagAssignment
   /genericFlagAssignment/[id]:
     post:
-      summary: getSingle
+      summary: Generic Flag Assignment Get ID
       operationId: genericFlagAssignmentGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -7434,7 +7434,7 @@ paths:
         - genericFlagAssignment
   /genericFlagAssignment/create:
     post:
-      summary: create
+      summary: Generic Flag Assignment Create
       operationId: genericFlagAssignmentCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -7470,7 +7470,7 @@ paths:
       x-fr-write: true
   /genericFlagAssignment/update:
     post:
-      summary: update
+      summary: Generic Flag Assignment Update
       operationId: genericFlagAssignmentUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -7501,7 +7501,7 @@ paths:
       x-fr-write: true
   /genericFlagAssignment/delete:
     post:
-      summary: delete
+      summary: Generic Flag Assignment Delete
       operationId: genericFlagAssignmentDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -7527,7 +7527,7 @@ paths:
       x-fr-write: true
   /team/search:
     post:
-      summary: search
+      summary: Team Search
       operationId: teamSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -7586,7 +7586,7 @@ paths:
         - team
   /team/get:
     post:
-      summary: getBulk
+      summary: Team Get Bulk
       operationId: teamGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -7613,7 +7613,7 @@ paths:
         - team
   /team/[id]:
     post:
-      summary: getSingle
+      summary: Team Get ID
       operationId: teamGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -7633,7 +7633,7 @@ paths:
         - team
   /accessControl/search:
     post:
-      summary: search
+      summary: Access Control Search
       operationId: accessControlSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -8146,7 +8146,7 @@ paths:
         - accessControl
   /accessControl/get:
     post:
-      summary: getBulk
+      summary: Access Control Get Bulk
       operationId: accessControlGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -8173,7 +8173,7 @@ paths:
         - accessControl
   /accessControl/[id]:
     post:
-      summary: getSingle
+      summary: Access Control Get ID
       operationId: accessControlGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -8193,7 +8193,7 @@ paths:
         - accessControl
   /unit/search:
     post:
-      summary: search
+      summary: Unit Search
       operationId: unitSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -8238,7 +8238,7 @@ paths:
         - unit
   /unit/get:
     post:
-      summary: getBulk
+      summary: Unit Get Bulk
       operationId: unitGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -8265,7 +8265,7 @@ paths:
         - unit
   /unit/[id]:
     post:
-      summary: getSingle
+      summary: Unit Get ID
       operationId: unitGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -8285,7 +8285,7 @@ paths:
         - unit
   /timeClock/search:
     post:
-      summary: search
+      summary: Time Clock Search
       operationId: timeClockSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -8346,7 +8346,7 @@ paths:
         - timeClock
   /timeClock/get:
     post:
-      summary: getBulk
+      summary: Time Clock Get Bulk
       operationId: timeClockGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -8373,7 +8373,7 @@ paths:
         - timeClock
   /timeClock/[id]:
     post:
-      summary: getSingle
+      summary: Time Clock Get ID
       operationId: timeClockGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -8393,7 +8393,7 @@ paths:
         - timeClock
   /timeClockCategory/search:
     post:
-      summary: search
+      summary: Time Clock Category Search
       operationId: timeClockCategorySearch
       consumes:
         - application/x-www-form-urlencoded
@@ -8458,7 +8458,7 @@ paths:
         - timeClockCategory
   /timeClockCategory/get:
     post:
-      summary: getBulk
+      summary: Time Clock Category Get Bulk
       operationId: timeClockCategoryGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -8485,7 +8485,7 @@ paths:
         - timeClockCategory
   /timeClockCategory/[id]:
     post:
-      summary: getSingle
+      summary: Time Clock Category Get ID
       operationId: timeClockCategoryGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -8505,7 +8505,7 @@ paths:
         - timeClockCategory
   /region/search:
     post:
-      summary: search
+      summary: Region Search
       operationId: regionSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -8566,7 +8566,7 @@ paths:
         - region
   /region/get:
     post:
-      summary: getBulk
+      summary: Region Get Bulk
       operationId: regionGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -8593,7 +8593,7 @@ paths:
         - region
   /region/[id]:
     post:
-      summary: getSingle
+      summary: Region Get ID
       operationId: regionGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -8613,7 +8613,7 @@ paths:
         - region
   /task/search:
     post:
-      summary: search
+      summary: Task Search
       operationId: taskSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -8706,7 +8706,7 @@ paths:
         - task
   /task/get:
     post:
-      summary: getBulk
+      summary: Task Get Bulk
       operationId: taskGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -8733,7 +8733,7 @@ paths:
         - task
   /task/[id]:
     post:
-      summary: getSingle
+      summary: Task Get ID
       operationId: taskGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -8753,7 +8753,7 @@ paths:
         - task
   /task/create:
     post:
-      summary: create
+      summary: Task Create
       operationId: taskCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -8849,7 +8849,7 @@ paths:
       x-fr-write: true
   /task/update:
     post:
-      summary: update
+      summary: Task Update
       operationId: taskUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -8940,7 +8940,7 @@ paths:
       x-fr-write: true
   /employeeLocation/search:
     post:
-      summary: search
+      summary: Employee Location Search
       operationId: employeeLocationSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -8989,7 +8989,7 @@ paths:
         - employeeLocation
   /employeeLocation/get:
     post:
-      summary: getBulk
+      summary: Employee Location Get Bulk
       operationId: employeeLocationGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -9016,7 +9016,7 @@ paths:
         - employeeLocation
   /employeeLocation/[id]:
     post:
-      summary: getSingle
+      summary: Employee Location Get ID
       operationId: employeeLocationGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -9036,7 +9036,7 @@ paths:
         - employeeLocation
   /form/search:
     post:
-      summary: search
+      summary: Form Search
       operationId: formSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -9109,7 +9109,7 @@ paths:
         - form
   /form/get:
     post:
-      summary: getBulk
+      summary: Form Get Bulk
       operationId: formGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -9141,7 +9141,7 @@ paths:
         - form
   /form/[id]:
     post:
-      summary: getSingle
+      summary: Form Get ID
       operationId: formGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -9166,7 +9166,7 @@ paths:
         - form
   /product/search:
     post:
-      summary: search
+      summary: Product Search
       operationId: productSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -9227,7 +9227,7 @@ paths:
         - product
   /product/get:
     post:
-      summary: getBulk
+      summary: Product Get Bulk
       operationId: productGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -9254,7 +9254,7 @@ paths:
         - product
   /product/[id]:
     post:
-      summary: getSingle
+      summary: Product Get ID
       operationId: productGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -9274,7 +9274,7 @@ paths:
         - product
   /product/create:
     post:
-      summary: create
+      summary: Product Create
       operationId: productCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -9340,7 +9340,7 @@ paths:
       x-fr-write: true
   /product/update:
     post:
-      summary: update
+      summary: Product Update
       operationId: productUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -9411,7 +9411,7 @@ paths:
       x-fr-write: true
   /appointmentReminder/search:
     post:
-      summary: search
+      summary: Appointment Reminder Search
       operationId: appointmentReminderSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -9508,7 +9508,7 @@ paths:
         - appointmentReminder
   /appointmentReminder/get:
     post:
-      summary: getBulk
+      summary: Appointment Reminder Get Bulk
       operationId: appointmentReminderGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -9535,7 +9535,7 @@ paths:
         - appointmentReminder
   /appointmentReminder/[id]:
     post:
-      summary: getSingle
+      summary: Appointment Reminder Get ID
       operationId: appointmentReminderGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -9555,7 +9555,7 @@ paths:
         - appointmentReminder
   /appointmentReminder/create:
     post:
-      summary: create
+      summary: Appointment Reminder Create
       operationId: appointmentReminderCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -9637,7 +9637,7 @@ paths:
       x-fr-write: true
   /appointmentReminder/update:
     post:
-      summary: update
+      summary: Appointment Reminder Update
       operationId: appointmentReminderUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -9718,7 +9718,7 @@ paths:
       x-fr-write: true
   /paymentProfile/search:
     post:
-      summary: search
+      summary: Payment Profile Search
       operationId: paymentProfileSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -9795,7 +9795,7 @@ paths:
         - paymentProfile
   /paymentProfile/get:
     post:
-      summary: getBulk
+      summary: Payment Profile Get Bulk
       operationId: paymentProfileGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -9822,7 +9822,7 @@ paths:
         - paymentProfile
   /paymentProfile/[id]:
     post:
-      summary: getSingle
+      summary: Payment Profile Get ID
       operationId: paymentProfileGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -9842,7 +9842,7 @@ paths:
         - paymentProfile
   /paymentProfile/create:
     post:
-      summary: create
+      summary: Payment Profile Create
       operationId: paymentProfileCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -9968,7 +9968,7 @@ paths:
       x-fr-write: true
   /paymentProfile/update:
     post:
-      summary: update
+      summary: Payment Profile Update
       operationId: paymentProfileUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -10069,7 +10069,7 @@ paths:
       x-fr-write: true
   /paymentProfile/delete:
     post:
-      summary: delete
+      summary: Payment Profile Delete
       operationId: paymentProfileDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -10095,7 +10095,7 @@ paths:
       x-fr-write: true
   /office/search:
     post:
-      summary: search
+      summary: Office Search
       operationId: officeSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -10136,7 +10136,7 @@ paths:
         - office
   /office/get:
     post:
-      summary: getBulk
+      summary: Office Get Bulk
       operationId: officeGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -10163,7 +10163,7 @@ paths:
         - office
   /office/[id]:
     post:
-      summary: getSingle
+      summary: Office Get ID
       operationId: officeGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -10183,7 +10183,7 @@ paths:
         - office
   /door/search:
     post:
-      summary: search
+      summary: Door Search
       operationId: doorSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -10256,7 +10256,7 @@ paths:
         - door
   /door/get:
     post:
-      summary: getBulk
+      summary: Door Get Bulk
       operationId: doorGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -10283,7 +10283,7 @@ paths:
         - door
   /door/[id]:
     post:
-      summary: getSingle
+      summary: Door Get ID
       operationId: doorGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -10303,7 +10303,7 @@ paths:
         - door
   /knock/search:
     post:
-      summary: search
+      summary: Knock Search
       operationId: knockSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -10352,7 +10352,7 @@ paths:
         - knock
   /knock/get:
     post:
-      summary: getBulk
+      summary: Knock Get Bulk
       operationId: knockGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -10379,7 +10379,7 @@ paths:
         - knock
   /knock/[id]:
     post:
-      summary: getSingle
+      summary: Knock Get ID
       operationId: knockGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -10399,7 +10399,7 @@ paths:
         - knock
   /chemical/search:
     post:
-      summary: search
+      summary: Chemical Search
       operationId: chemicalSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -10448,7 +10448,7 @@ paths:
         - chemical
   /chemical/get:
     post:
-      summary: getBulk
+      summary: Chemical Get Bulk
       operationId: chemicalGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -10475,7 +10475,7 @@ paths:
         - chemical
   /chemical/[id]:
     post:
-      summary: getSingle
+      summary: Chemical Get ID
       operationId: chemicalGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -10495,7 +10495,7 @@ paths:
         - chemical
   /chemicalUse/search:
     post:
-      summary: search
+      summary: Chemical Use Search
       operationId: chemicalUseSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -10568,7 +10568,7 @@ paths:
         - chemicalUse
   /chemicalUse/get:
     post:
-      summary: getBulk
+      summary: Chemical Use Get Bulk
       operationId: chemicalUseGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -10595,7 +10595,7 @@ paths:
         - chemicalUse
   /chemicalUse/[id]:
     post:
-      summary: getSingle
+      summary: Chemical Use Get ID
       operationId: chemicalUseGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -10615,7 +10615,7 @@ paths:
         - chemicalUse
   /group/search:
     post:
-      summary: search
+      summary: Group Search
       operationId: groupSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -10668,7 +10668,7 @@ paths:
         - group
   /group/get:
     post:
-      summary: getBulk
+      summary: Group Get Bulk
       operationId: groupGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -10695,7 +10695,7 @@ paths:
         - group
   /group/[id]:
     post:
-      summary: getSingle
+      summary: Group Get ID
       operationId: groupGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -10715,7 +10715,7 @@ paths:
         - group
   /group/create:
     post:
-      summary: create
+      summary: Group Create
       operationId: groupCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -10751,7 +10751,7 @@ paths:
       x-fr-write: true
   /group/update:
     post:
-      summary: update
+      summary: Group Update
       operationId: groupUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -10782,7 +10782,7 @@ paths:
       x-fr-write: true
   /insect/search:
     post:
-      summary: search
+      summary: Insect Search
       operationId: insectSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -10831,7 +10831,7 @@ paths:
         - insect
   /insect/get:
     post:
-      summary: getBulk
+      summary: Insect Get Bulk
       operationId: insectGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -10858,7 +10858,7 @@ paths:
         - insect
   /insect/[id]:
     post:
-      summary: getSingle
+      summary: Insect Get ID
       operationId: insectGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -10878,7 +10878,7 @@ paths:
         - insect
   /location/search:
     post:
-      summary: search
+      summary: Location Search
       operationId: locationSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -10927,7 +10927,7 @@ paths:
         - location
   /location/get:
     post:
-      summary: getBulk
+      summary: Location Get Bulk
       operationId: locationGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -10954,7 +10954,7 @@ paths:
         - location
   /location/[id]:
     post:
-      summary: getSingle
+      summary: Location Get ID
       operationId: locationGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -10974,7 +10974,7 @@ paths:
         - location
   /applicationMethod/search:
     post:
-      summary: search
+      summary: Application Method Search
       operationId: applicationMethodSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11031,7 +11031,7 @@ paths:
         - applicationMethod
   /applicationMethod/get:
     post:
-      summary: getBulk
+      summary: Application Method Get Bulk
       operationId: applicationMethodGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -11058,7 +11058,7 @@ paths:
         - applicationMethod
   /applicationMethod/[id]:
     post:
-      summary: getSingle
+      summary: Application Method Get ID
       operationId: applicationMethodGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -11078,7 +11078,7 @@ paths:
         - applicationMethod
   /glAccount/search:
     post:
-      summary: search
+      summary: Gl Account Search
       operationId: glAccountSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11127,7 +11127,7 @@ paths:
         - glAccount
   /glAccount/get:
     post:
-      summary: getBulk
+      summary: Gl Account Get Bulk
       operationId: glAccountGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -11154,7 +11154,7 @@ paths:
         - glAccount
   /glAccount/[id]:
     post:
-      summary: getSingle
+      summary: Gl Account Get ID
       operationId: glAccountGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -11174,7 +11174,7 @@ paths:
         - glAccount
   /cancellationReason/search:
     post:
-      summary: search
+      summary: Cancellation Reason Search
       operationId: cancellationReasonSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11231,7 +11231,7 @@ paths:
         - cancellationReason
   /cancellationReason/get:
     post:
-      summary: getBulk
+      summary: Cancellation Reason Get Bulk
       operationId: cancellationReasonGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -11258,7 +11258,7 @@ paths:
         - cancellationReason
   /cancellationReason/[id]:
     post:
-      summary: getSingle
+      summary: Cancellation Reason Get ID
       operationId: cancellationReasonGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -11278,7 +11278,7 @@ paths:
         - cancellationReason
   /additionalContact/search:
     post:
-      summary: search
+      summary: Additional Contact Search
       operationId: additionalContactSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11335,7 +11335,7 @@ paths:
         - additionalContact
   /additionalContact/get:
     post:
-      summary: getBulk
+      summary: Additional Contact Get Bulk
       operationId: additionalContactGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -11362,7 +11362,7 @@ paths:
         - additionalContact
   /additionalContact/[id]:
     post:
-      summary: getSingle
+      summary: Additional Contact Get ID
       operationId: additionalContactGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -11382,7 +11382,7 @@ paths:
         - additionalContact
   /additionalContact/create:
     post:
-      summary: create
+      summary: Additional Contact Create
       operationId: additionalContactCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -11503,7 +11503,7 @@ paths:
       x-fr-write: true
   /appointmentCancellationReason/search:
     post:
-      summary: search
+      summary: Appointment Cancellation Reason Search
       operationId: appointmentCancellationReasonSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11556,7 +11556,7 @@ paths:
         - appointmentCancellationReason
   /appointmentCancellationReason/get:
     post:
-      summary: getBulk
+      summary: Appointment Cancellation Reason Get Bulk
       operationId: appointmentCancellationReasonGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -11583,7 +11583,7 @@ paths:
         - appointmentCancellationReason
   /appointmentCancellationReason/[id]:
     post:
-      summary: getSingle
+      summary: Appointment Cancellation Reason Get ID
       operationId: appointmentCancellationReasonGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -11603,7 +11603,7 @@ paths:
         - appointmentCancellationReason
   /appointmentRescheduleReason/search:
     post:
-      summary: search
+      summary: Appointment Reschedule Reason Search
       operationId: appointmentRescheduleReasonSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11656,7 +11656,7 @@ paths:
         - appointmentRescheduleReason
   /appointmentRescheduleReason/get:
     post:
-      summary: getBulk
+      summary: Appointment Reschedule Reason Get Bulk
       operationId: appointmentRescheduleReasonGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -11683,7 +11683,7 @@ paths:
         - appointmentRescheduleReason
   /appointmentRescheduleReason/[id]:
     post:
-      summary: getSingle
+      summary: Appointment Reschedule Reason Get ID
       operationId: appointmentRescheduleReasonGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -11703,7 +11703,7 @@ paths:
         - appointmentRescheduleReason
   /customerSource/search:
     post:
-      summary: search
+      summary: Customer Source Search
       operationId: customerSourceSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11768,7 +11768,7 @@ paths:
         - customerSource
   /customerSource/get:
     post:
-      summary: getBulk
+      summary: Customer Source Get Bulk
       operationId: customerSourceGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -11795,7 +11795,7 @@ paths:
         - customerSource
   /customerSource/[id]:
     post:
-      summary: getSingle
+      summary: Customer Source Get ID
       operationId: customerSourceGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -11815,7 +11815,7 @@ paths:
         - customerSource
   /appliedPayment/search:
     post:
-      summary: search
+      summary: Applied Payment Search
       operationId: appliedPaymentSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11896,7 +11896,7 @@ paths:
         - appliedPayment
   /appliedPayment/get:
     post:
-      summary: getBulk
+      summary: Applied Payment Get Bulk
       operationId: appliedPaymentGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -11923,7 +11923,7 @@ paths:
         - appliedPayment
   /appliedPayment/[id]:
     post:
-      summary: getSingle
+      summary: Applied Payment Get ID
       operationId: appliedPaymentGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -11943,7 +11943,7 @@ paths:
         - appliedPayment
   /disbursement/search:
     post:
-      summary: search
+      summary: Disbursement Search
       operationId: disbursementSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -11992,7 +11992,7 @@ paths:
         - disbursement
   /disbursement/get:
     post:
-      summary: getBulk
+      summary: Disbursement Get Bulk
       operationId: disbursementGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -12019,7 +12019,7 @@ paths:
         - disbursement
   /disbursement/[id]:
     post:
-      summary: getSingle
+      summary: Disbursement Get ID
       operationId: disbursementGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -12039,7 +12039,7 @@ paths:
         - disbursement
   /disbursementItem/search:
     post:
-      summary: search
+      summary: Disbursement Item Search
       operationId: disbursementItemSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -12092,7 +12092,7 @@ paths:
         - disbursementItem
   /disbursementItem/get:
     post:
-      summary: getBulk
+      summary: Disbursement Item Get Bulk
       operationId: disbursementItemGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -12119,7 +12119,7 @@ paths:
         - disbursementItem
   /disbursementItem/[id]:
     post:
-      summary: getSingle
+      summary: Disbursement Item Get ID
       operationId: disbursementItemGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -12139,7 +12139,7 @@ paths:
         - disbursementItem
   /chargeback/search:
     post:
-      summary: search
+      summary: Chargeback Search
       operationId: chargebackSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -12192,7 +12192,7 @@ paths:
         - chargeback
   /chargeback/get:
     post:
-      summary: getBulk
+      summary: Chargeback Get Bulk
       operationId: chargebackGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -12219,7 +12219,7 @@ paths:
         - chargeback
   /chargeback/[id]:
     post:
-      summary: getSingle
+      summary: Chargeback Get ID
       operationId: chargebackGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -12239,7 +12239,7 @@ paths:
         - chargeback
   /diagram/search:
     post:
-      summary: search
+      summary: Diagram Search
       operationId: diagramSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -12296,7 +12296,7 @@ paths:
         - diagram
   /diagram/get:
     post:
-      summary: getBulk
+      summary: Diagram Get Bulk
       operationId: diagramGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -12323,7 +12323,7 @@ paths:
         - diagram
   /diagram/[id]:
     post:
-      summary: getSingle
+      summary: Diagram Get ID
       operationId: diagramGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -12343,7 +12343,7 @@ paths:
         - diagram
   /diagram/update:
     post:
-      summary: update
+      summary: Diagram Update
       operationId: diagramUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -12379,7 +12379,7 @@ paths:
       x-fr-write: true
   /ticketItem/search:
     post:
-      summary: search
+      summary: Ticket Item Search
       operationId: ticketItemSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -12456,7 +12456,7 @@ paths:
         - ticketItem
   /ticketItem/get:
     post:
-      summary: getBulk
+      summary: Ticket Item Get Bulk
       operationId: ticketItemGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -12483,7 +12483,7 @@ paths:
         - ticketItem
   /ticketItem/[id]:
     post:
-      summary: getSingle
+      summary: Ticket Item Get ID
       operationId: ticketItemGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -12503,7 +12503,7 @@ paths:
         - ticketItem
   /servicePlan/search:
     post:
-      summary: search
+      summary: Service Plan Search
       operationId: servicePlanSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -12711,7 +12711,7 @@ paths:
         - servicePlan
   /servicePlan/get:
     post:
-      summary: getBulk
+      summary: Service Plan Get Bulk
       operationId: servicePlanGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -12743,7 +12743,7 @@ paths:
         - servicePlan
   /servicePlan/[id]:
     post:
-      summary: getSingle
+      summary: Service Plan Get ID
       operationId: servicePlanGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -12768,7 +12768,7 @@ paths:
         - servicePlan
   /servicePlan/create:
     post:
-      summary: create
+      summary: Service Plan Create
       operationId: servicePlanCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -13032,7 +13032,7 @@ paths:
       x-fr-write: true
   /servicePlan/update:
     post:
-      summary: update
+      summary: Service Plan Update
       operationId: servicePlanUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -13268,7 +13268,7 @@ paths:
       x-fr-write: true
   /servicePlan/updateLeadStage:
     post:
-      summary: updateLeadStage
+      summary: Service Plan Update Lead Stage
       operationId: servicePlanUpdateLeadStage
       consumes:
         - application/x-www-form-urlencoded
@@ -13314,7 +13314,7 @@ paths:
       x-fr-write: true
   /servicePlanRound/search:
     post:
-      summary: search
+      summary: Service Plan Round Search
       operationId: servicePlanRoundSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -13530,7 +13530,7 @@ paths:
         - servicePlanRound
   /servicePlanRound/get:
     post:
-      summary: getBulk
+      summary: Service Plan Round Get Bulk
       operationId: servicePlanRoundGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -13557,7 +13557,7 @@ paths:
         - servicePlanRound
   /servicePlanRound/[id]:
     post:
-      summary: getSingle
+      summary: Service Plan Round Get ID
       operationId: servicePlanRoundGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -13577,7 +13577,7 @@ paths:
         - servicePlanRound
   /servicePlanRound/update:
     post:
-      summary: update
+      summary: Service Plan Round Update
       operationId: servicePlanRoundUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -13643,7 +13643,7 @@ paths:
       x-fr-write: true
   /servicePlanRound/optOut:
     post:
-      summary: optOut
+      summary: Service Plan Round Opt Out
       operationId: servicePlanRoundOptOut
       consumes:
         - application/x-www-form-urlencoded
@@ -13674,7 +13674,7 @@ paths:
       x-fr-write: true
   /compassCustomer/search:
     post:
-      summary: search
+      summary: Compass Customer Search
       operationId: compassCustomerSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -13719,7 +13719,7 @@ paths:
         - compassCustomer
   /compassCustomer/get:
     post:
-      summary: getBulk
+      summary: Compass Customer Get Bulk
       operationId: compassCustomerGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -13746,7 +13746,7 @@ paths:
         - compassCustomer
   /compassCustomer/[id]:
     post:
-      summary: getSingle
+      summary: Compass Customer Get ID
       operationId: compassCustomerGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -13766,7 +13766,7 @@ paths:
         - compassCustomer
   /reserviceReason/search:
     post:
-      summary: search
+      summary: Reservice Reason Search
       operationId: reserviceReasonSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -13819,7 +13819,7 @@ paths:
         - reserviceReason
   /reserviceReason/get:
     post:
-      summary: getBulk
+      summary: Reservice Reason Get Bulk
       operationId: reserviceReasonGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -13846,7 +13846,7 @@ paths:
         - reserviceReason
   /reserviceReason/[id]:
     post:
-      summary: getSingle
+      summary: Reservice Reason Get ID
       operationId: reserviceReasonGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -13866,7 +13866,7 @@ paths:
         - reserviceReason
   /skill/search:
     post:
-      summary: search
+      summary: Skill Search
       operationId: skillSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -13911,7 +13911,7 @@ paths:
         - skill
   /skill/get:
     post:
-      summary: getBulk
+      summary: Skill Get Bulk
       operationId: skillGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -13938,7 +13938,7 @@ paths:
         - skill
   /skill/[id]:
     post:
-      summary: getSingle
+      summary: Skill Get ID
       operationId: skillGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -13958,7 +13958,7 @@ paths:
         - skill
   /skill/create:
     post:
-      summary: create
+      summary: Skill Create
       operationId: skillCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -14004,7 +14004,7 @@ paths:
       x-fr-write: true
   /skill/update:
     post:
-      summary: update
+      summary: Skill Update
       operationId: skillUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -14055,7 +14055,7 @@ paths:
       x-fr-write: true
   /routeTemplate/search:
     post:
-      summary: search
+      summary: Route Template Search
       operationId: routeTemplateSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -14100,7 +14100,7 @@ paths:
         - routeTemplate
   /routeTemplate/get:
     post:
-      summary: getBulk
+      summary: Route Template Get Bulk
       operationId: routeTemplateGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -14127,7 +14127,7 @@ paths:
         - routeTemplate
   /routeTemplate/[id]:
     post:
-      summary: getSingle
+      summary: Route Template Get ID
       operationId: routeTemplateGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -14147,7 +14147,7 @@ paths:
         - routeTemplate
   /contactType/search:
     post:
-      summary: search
+      summary: Contact Type Search
       operationId: contactTypeSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -14196,7 +14196,7 @@ paths:
         - contactType
   /contactType/get:
     post:
-      summary: getBulk
+      summary: Contact Type Get Bulk
       operationId: contactTypeGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -14223,7 +14223,7 @@ paths:
         - contactType
   /contactType/[id]:
     post:
-      summary: getSingle
+      summary: Contact Type Get ID
       operationId: contactTypeGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -14243,7 +14243,7 @@ paths:
         - contactType
   /contactType/create:
     post:
-      summary: create
+      summary: Contact Type Create
       operationId: contactTypeCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -14288,7 +14288,7 @@ paths:
       x-fr-write: true
   /contactType/update:
     post:
-      summary: update
+      summary: Contact Type Update
       operationId: contactTypeUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -14336,7 +14336,7 @@ paths:
       x-fr-write: true
   /collectionStage/search:
     post:
-      summary: search
+      summary: Collection Stage Search
       operationId: collectionStageSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -14377,7 +14377,7 @@ paths:
         - collectionStage
   /collectionStage/get:
     post:
-      summary: getBulk
+      summary: Collection Stage Get Bulk
       operationId: collectionStageGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -14404,7 +14404,7 @@ paths:
         - collectionStage
   /collectionStage/[id]:
     post:
-      summary: getSingle
+      summary: Collection Stage Get ID
       operationId: collectionStageGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -14424,7 +14424,7 @@ paths:
         - collectionStage
   /collectionStage/update:
     post:
-      summary: update
+      summary: Collection Stage Update
       operationId: collectionStageUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -14465,7 +14465,7 @@ paths:
       x-fr-write: true
   /paymentPriority/search:
     post:
-      summary: search
+      summary: Payment Priority Search
       operationId: paymentPrioritySearch
       consumes:
         - application/x-www-form-urlencoded
@@ -14514,7 +14514,7 @@ paths:
         - paymentPriority
   /paymentPriority/get:
     post:
-      summary: getBulk
+      summary: Payment Priority Get Bulk
       operationId: paymentPriorityGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -14541,7 +14541,7 @@ paths:
         - paymentPriority
   /paymentPriority/[id]:
     post:
-      summary: getSingle
+      summary: Payment Priority Get ID
       operationId: paymentPriorityGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -14561,7 +14561,7 @@ paths:
         - paymentPriority
   /onMyWayNotification/search:
     post:
-      summary: search
+      summary: On My Way Notification Search
       operationId: onMyWayNotificationSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -14618,7 +14618,7 @@ paths:
         - onMyWayNotification
   /onMyWayNotification/get:
     post:
-      summary: getBulk
+      summary: On My Way Notification Get Bulk
       operationId: onMyWayNotificationGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -14645,7 +14645,7 @@ paths:
         - onMyWayNotification
   /onMyWayNotification/[id]:
     post:
-      summary: getSingle
+      summary: On My Way Notification Get ID
       operationId: onMyWayNotificationGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -14665,7 +14665,7 @@ paths:
         - onMyWayNotification
   /dataLink/search:
     post:
-      summary: search
+      summary: Data Link Search
       operationId: dataLinkSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -14730,7 +14730,7 @@ paths:
         - dataLink
   /dataLink/get:
     post:
-      summary: getBulk
+      summary: Data Link Get Bulk
       operationId: dataLinkGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -14757,7 +14757,7 @@ paths:
         - dataLink
   /dataLink/[id]:
     post:
-      summary: getSingle
+      summary: Data Link Get ID
       operationId: dataLinkGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -14777,7 +14777,7 @@ paths:
         - dataLink
   /dataLink/create:
     post:
-      summary: create
+      summary: Data Link Create
       operationId: dataLinkCreate
       consumes:
         - application/x-www-form-urlencoded
@@ -14823,7 +14823,7 @@ paths:
       x-fr-write: true
   /dataLink/update:
     post:
-      summary: update
+      summary: Data Link Update
       operationId: dataLinkUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -14874,7 +14874,7 @@ paths:
       x-fr-write: true
   /dataLink/delete:
     post:
-      summary: delete
+      summary: Data Link Delete
       operationId: dataLinkDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -14915,7 +14915,7 @@ paths:
       x-fr-write: true
   /license/search:
     post:
-      summary: search
+      summary: License Search
       operationId: licenseSearch
       consumes:
         - application/x-www-form-urlencoded
@@ -14956,7 +14956,7 @@ paths:
         - license
   /license/get:
     post:
-      summary: getBulk
+      summary: License Get Bulk
       operationId: licenseGetBulk
       consumes:
         - application/x-www-form-urlencoded
@@ -14983,7 +14983,7 @@ paths:
         - license
   /license/[id]:
     post:
-      summary: getSingle
+      summary: License Get ID
       operationId: licenseGetID
       consumes:
         - application/x-www-form-urlencoded
@@ -15003,7 +15003,7 @@ paths:
         - license
   /license/delete:
     post:
-      summary: delete
+      summary: License Delete
       operationId: licenseDelete
       consumes:
         - application/x-www-form-urlencoded
@@ -15031,7 +15031,7 @@ paths:
       x-fr-write: true
   /license/update:
     post:
-      summary: update
+      summary: License Update
       operationId: licenseUpdate
       consumes:
         - application/x-www-form-urlencoded
@@ -15072,7 +15072,7 @@ paths:
       x-fr-write: true
   /license/create:
     post:
-      summary: create
+      summary: License Create
       operationId: licenseCreate
       consumes:
         - application/x-www-form-urlencoded

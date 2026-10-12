@@ -8,13 +8,13 @@
   "info": {
     "version": "1.0",
     "title": "FieldRoutes",
-    "description": "# FieldRoutes API — Community Reference\n\nA curated, corrected FieldRoutes OpenAPI spec — more complete than the vendor's\npublished docs (it documents ~90 endpoints and many fields FieldRoutes omits),\ncorrected for known documentation errors, and auto-synced from\n[fieldroutes.dev](https://fieldroutes.dev) every week.\n\nThis is an **unofficial** reference maintained independently of FieldRoutes.\nFor account-specific or support issues, contact **apisupport@fieldroutes.com**.\n\n**Spot an error, a stale field, or a missing endpoint?**\n[Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues) —\ncorrections are welcome and get folded into the next sync.\n\n## Getting started\n\nEvery call is a POST (or GET) to `https://YOURDOMAIN.pestroutes.com/api/{entity}/{action}`\nwith `authenticationKey` + `authenticationToken` (and usually `officeID`).\n\n```\nPOST https://YOURDOMAIN.pestroutes.com/api/customer/search\nContent-Type: application/json\n\n{ \"authenticationKey\": \"…\", \"authenticationToken\": \"…\",\n  \"lname\": \"Doe\", \"includeData\": 1 }\n```\n\nYou can also pull the vendor's own raw spec at any time:\n`/api/documentation/swagger?authenticationKey=xxx&authenticationToken=xxx`.\n\n## Limits you need to design around\n\n| Limit | Value | What to do about it |\n| --- | --- | --- |\n| `/search` result set | **50,000 IDs** | Exactly 50,000 back means there are more. Page on the primary key with `>` and the last ID of the previous page until a set returns short. |\n| `/get` entities | **1,000** | Chunk your ID lists. Inputs past the limit may be silently truncated — send `authenticationKey`/`authenticationToken` **last** so a truncated request fails outright instead of half-executing. |\n| `includeData=1` on search | **1,000 resolved** | Overflow IDs come back in `{entity}IDsNoDataExported`; fetch those separately. |\n| `bulkEntities` per write | **100** | Split larger batches and stagger them. |\n| Rate | **3,000 reads + 3,000 writes per office, 60/min** | Default cap. See the FAQ on pacing before you go near it. |\n\n## Keys and office scope\n\n- By default a key is bound to **one office**: reads get an implied `officeIDs`\n  filter and writes an implied `officeID`.\n- **Global keys** may pass any `officeIDs` filter on search and any `officeID` on\n  writes (`officeIDs: 0` = all offices).\n- **Key grouping:** each key has its own read/write limits by default. Keys can be\n  grouped on request so their limits and usage aggregate into a shared pool.\n\n## Core entities\n- **Office** — a branch/market. Almost everything is scoped by `officeID`.\n- **Customer** — the account holder / serviced property (`customerID`); the hub other records hang off.\n- **Subscription** — a customer's recurring service plan (recurring revenue): service type, billing frequency, charges/addons.\n- **Appointment** — a single scheduled visit. Key fields: `date`, `status`, `assignedTech`, `spotID`, `routeID`, `cancellationReasonID`.\n- **Route** — a tech's day of stops for one `date`; carries `groupID`/`groupTitle` and `assignedTech` (`0` = unassigned). The service date lives here, not on the group.\n- **Spot** — a bookable time slot on a route (`start`/`end`, `spotCapacity`). `currentAppointment` empty = open; `blockReason` set = blocked. `/spot/reserve` holds one for `duration` minutes (a lock, not a booking).\n- **Group** — a routing template/team that routes are scheduled onto. Thin entity (`groupID`, `templateID`, `dateUpdated`); has no service date.\n- **Ticket** — an invoice / charge document.\n- **Note** — a comment on a customer/appointment; `contactType` sets the kind.\n\n## Flags & reasons\n- **Generic Flag** (`genericFlagAssignment`) — a tag attached to an entity (CUST/APPT). The flag set is defined per-office, so it's the usual place custom attributes end up (property characteristics, reason codes, campaign tags).\n- **customerFlag** — flags on the customer record (e.g. `pendingCancel`).\n- **contactType** — the note type, configured per-office under **Admin > Preferences > Notes**. The IDs are *not* portable between offices or tenants — look yours up rather than hardcoding a number you saw in someone else's integration.\n- **cancellationReason** — coded reasons an appointment was cancelled/no-showed (`cancellationReasonID`).\n\n## Try it from this page\n\nThe **Try it** tab runs real calls against your own tenant. Enter your host\n(`mycompany.fieldroutes.com`), key and token in the bar at the top, then pick an\nendpoint and hit *Execute*. Requests go **straight from your browser to your\nFieldRoutes host** — this site has no backend and never sees your credentials.\n\nWrites are blocked until you explicitly tick **Allow write operations**, because\n`create`/`update`/`delete` hit live data with no undo.\n\n## Status & scheduling\n- **Appointment status** (integer): `-1` = Cancelled · `-2` = Re-Scheduled · `0` = Pending · `1` = Completed · `2` = No Show.\n  `-2` is easy to miss and matters for reporting: an appointment that was no-showed\n  and then rescheduled **no longer carries status `2`**, so a no-show report filtered\n  on `2` alone undercounts. A reschedule also populates `rescheduleReasonID` — a\n  different lookup from `cancellationReasonID`.\n- **assignedTech** — employee on a route/appointment; `0` = none.\n- **apiCanSchedule** — send `1` on route/spot search to return only the slots the API may schedule onto — the gate for programmatic scheduling.\n\n## API conventions\n\n**`/search` → `/get`.** `/{entity}/search` returns IDs; feed them to `/{entity}/get`\nfor the full records. `includeData=1` short-circuits that for the first 1,000.\n\n**Every search parameter** takes either a plain value or a query object:\n\n```json\n{ \"dateUpdated\": { \"operator\": \">\", \"value\": \"2026-01-01 00:00:00\" } }\n```\n\n| Operator type | Accepted values |\n| --- | --- |\n| Comparison | `=` `!=` `>` `<` `>=` `<=` |\n| Set / range | `IN` `BETWEEN` |\n| Text | `LIKE` `STARTSWITH` `ENDSWITH` `CONTAINS` |\n\n**Auth** — every call needs `authenticationKey` + `authenticationToken`, and usually\n`officeID`. **accessControl** profiles (the view/edit/financial flags on an employee)\ngate what a key is allowed to do.\n\n## Silent failures you have to design around\n\nThe API's most expensive failure mode is not an error — it's a `200` that did\nnothing. Each of these has been observed in production.\n\n**A read can return `200` + `success: true` + an empty array for a record that\nexists.** There is no `429`, no `errorMessage`, and nothing to distinguish it from a\ngenuine not-found. Failures arrive in bursts, which suggests a server-side window\nrather than per-record state — the same call for the same ID succeeds minutes later.\n\n> Treat an empty read as **retryable, not as \"deleted\"**. Retry with exponential\n> backoff and jitter, bounded by a budget that stays under your own function's\n> timeout. Code that does `if (!rows.length) throw new Error('not found')` will\n> silently drop real records.\n\n**A write can return `200` with `success: false` in the body.** Check `success` on\nevery mutating call; the HTTP status alone will not tell you the write landed.\n\n**A write can also report success while ignoring part of your payload.** Look for\n**`ignoredParams`** in the response — a parameter the endpoint does not accept is\ndropped there rather than rejected. Notably, `/appointment/update` accepts\n`cancelledBy` but ignores `cancellationReasonID`; the latter is cleared by the\nplatform when an appointment leaves No Show status and cannot be written back\nthrough any update endpoint. If you need that reason to survive a status change,\npersist it yourself before the transition, or read it from a flag instead.\n\n**Read your writes back when it matters.** For flag assignments in particular, a\n`200` is not proof the assignment is visible. Make the read-back advisory — alert on\na mismatch rather than aborting, or a false negative will abort work that actually\nsucceeded.\n\n### Singular vs plural parameter names are load-bearing\n\nSeveral endpoints accept a plural filter and **silently ignore the singular form**,\nwhich fails in the worst possible direction — not an error, not an empty set, but a\nwrong result set that looks plausible:\n\n| Endpoint | Correct | What the singular does |\n| --- | --- | --- |\n| `/genericFlagAssignment/search` | `entityIDs` | `entityID` is ignored — returns **every assignment in the system** |\n| `/appointment/search` | `customerIDs` | `customerID` lands in `ignoredParams` — returns **every appointment** (capped at 50,000) |\n| `/appointment/search` | `officeIDs` | singular `officeID` returns `count: 0` |\n\n**`/genericFlagAssignment/*` search and get need `officeIDs: 0` and must not receive\na singular `officeID` at all.** Sending `officeID` alone returns `count: 0`, and\nsending **both** `officeID` and `officeIDs: 0` also returns `count: 0`. If you have a\nshared request helper that injects `officeID` on every call, it needs an escape hatch\nfor these endpoints.\n\n**`/appointment/search` defaults to `status IN (0,1)`.** No Show, Re-Scheduled and Cancelled\nare excluded unless you pass `status` explicitly, so any report built on an unfiltered\nappointment search undercounts silently.\n\n### Credentials come back in every response\n\nResponses echo the `authenticationKey` and `authenticationToken` you sent inside a\n`params` object, and most HTTP clients attach the outbound request body to their\nerror objects too. **So `console.error(err)` or logging `err.response.data` writes\nlive credentials into your logs**, where they persist for the retention window.\n\n> Log the status and `errorMessage`, never the whole body — and if you find you have\n> been logging it, rotating the key is the remediation, not just fixing the log line.\n\n### Trigger-rule webhooks\n\nIf you drive integrations from FieldRoutes' trigger rules rather than by polling:\n\n- **They post `multipart/form-data`, not JSON.** Serverless platforms commonly leave\n  multipart bodies unparsed, so a handler written for JSON sees an unparsed buffer and\n  reports fields \"missing\" when every field was present.\n- **A failed delivery is not retried.** There is no redelivery and no dead-letter\n  queue, so if your handler drops the request the event is gone. Return `200` and\n  handle failures internally, or accept that non-2xx means the event is lost.\n- **They fire on a status *transition*.** Applying a flag or setting a field without\n  moving the status will not fire a rule that watches that transition — which is why\n  a record can look correctly tagged in the UI while no notification ever went out.\n\n## Building tools against this spec\n\nThe published spec carries extra metadata to make code generation and agent tooling\nstraightforward — it's the intended backbone for an MCP server or SDK:\n\n- **`tags`** — every operation is tagged with its entity (`customer`, `spot`, …), and\n  `x-tagGroups` sorts those 62 entities into six sections. Natural tool namespaces.\n- **`x-fr-write: true`** — set on every mutating operation. Use it to gate writes\n  behind confirmation, or to expose a read-only tool surface by default.\n- **Machine-readable artifacts** — `fieldroutes-swagger-docs.json` (canonical) and\n  `fieldroutes-swagger-docs.with-summaries.json` (adds human-readable operation\n  titles). Both are regenerated by the same weekly pipeline as this page.\n\nNote that `produces` is corrected to `application/json` here. FieldRoutes declares\n`text/html`, but the API is content-negotiated and answers a request for text/html\nwith a **406** — a client that honours the vendor's declared type gets rejected.\n\n## Common workflows\n\nExamples below use the vendor's `apiModule` JS helper (from\n[fieldroutes.dev/examples](https://fieldroutes.dev/examples), which has the full\nrunnable set); the same shapes apply to any HTTP client.\n\n**Incremental sync — pull everything changed since your last run**\n\n```js\napiModule.search('customer', {\n  dateUpdated: { operator: '>', value: '2022-03-01 00:00:00' },\n  includeData: 1\n}, /* fullResult */ 1).then(console.log);\n```\n\n**Global lookup by phone (global key)**\n\n```js\napiModule.search('customer', { officeIDs: 0, phone: '5558675309', includeData: 1 });\n```\n\n**Create a customer with a subscription**\n\n```js\napiModule.call('customer', 'create', { fname: 'John', lname: 'Doe' })\n  .then(r => apiModule.call('subscription', 'create', {\n    customerID: r.result,\n    serviceID: 1,\n    active: 1,\n    initialCharge: 200,      // charged on the initial service\n    serviceCharge: 100,      // charged per recurring service\n    agreementLength: 12,     // months\n    preferredDays: 4,        // 0=SUN … 6=SAT\n    preferredStart: '09:00:00',\n    preferredEnd: '17:00:00',\n    preferredTech: 1         // employeeID; 0 = no preference\n  }));\n```\n\n**Turn a subscription into a lead** — create it, then set the lead stage via\n`subscription/updateLeadStage` (`stageID` + `status`).\n\n**Addons** — both `initialAddons` and recurring `addons` take\n`{ description, quantity, amount, productID, serviceID, taxable, creditTo, unitID }`.\nA negative `amount` is a discount.\n\n**Payment profiles** — `paymentProfile/create` with `paymentMethod` `1` = credit\ncard, `2` = ACH, plus `gateway` (`payrix`, `authorize`, `nmi`, `brain`, `element`).\nCard profiles take `merchantID`/`merchantToken` from the gateway's tokenizer; ACH\ntakes `accountNumber`/`routingNumber`. **Confirm the active gateway with the office\nadmin first** — profiles created against an inactive gateway may be unusable.\nRefunds are `payment/createRefund` with `paymentID` + `amount`.\n\n**Bulk write (≤100 per request)**\n\n```js\napiModule.call('customer', 'create', {\n  officeID: 1,\n  bulkEntities: [{ fname: 'A', lname: 'One' }, { fname: 'B', lname: 'Two' }]\n});\n```\n\nFor large update sets driven off a search or CSV, stagger the writes\n(`apiModule.staggeredWrite(entity, action, rows, concurrency)`) rather than firing\nthem all at once.\n\n**Documents & contracts** — `document/createEncoded` (`encodedFile`) and\n`contract/create` (`base64EncodedFile`) take base64 with the data-URL prefix\nstripped.\n\n**dataLink** — attach arbitrary JSON to a record (`dataLink` on create/update, or\nthe `dataLink` entity). Pass `dataLink: 1` on search/get to have it resolved back.\n\n**Find the best spot for an address**\n\n```js\napiModule.search('route', {\n  date: { operator: 'between', value: ['2020-09-24', '2020-09-30'] },\n  latitude: lat, longitude: lng, apiCanSchedule: 1, includeData: 1\n})\n// sort routes by averageDistance, take the closest few, then:\n.then(routeIDs => apiModule.search('spot', {\n  routeIDs, date: dateFilter, latitude: lat, longitude: lng,\n  apiCanSchedule: 1, ignoreInitialDriveTime: 1, includeData: 1\n}));\n```\n\nSpots come back ordered by distance from the tech's previous stop, so the first\n`open` spot is usually the right one. If the appointment `duration` exceeds\n`spotCapacity`, walk `nextSpotID` until the full duration is covered.\n`ignoreInitialDriveTime: 1` stops the tech's start/end location from being weighed\nonce a route already has an appointment on it.\n\n**Hiding keys from the browser** — don't ship `authenticationKey`/`Token` to a\nfront end. Proxy through your own middleware and inject the credentials\nserver-side.\n\n## FAQ\n\n**Can we increase our API limits?**\nPremium API limits are capped by default at **3,000 reads and 3,000 writes per\noffice, at 60/minute**. If your needs exceed that, email\n**apisupport@fieldroutes.com** for a consultation.\n\n**Something went wrong — are there request logs?**\nYes. Reach out to **apisupport@fieldroutes.com** and they can pull them.\n\n**How should I pace my requests?**\nThrottle deliberately and treat the per-office limits as a shared budget, not a\ntarget. A few practical rules that hold up well in production:\n\n- **Never spike the API.** Bursting through a large ID list at full speed will\n  exhaust an office's read or write budget and degrade every other integration\n  (and the FieldRoutes UI) pointed at that office.\n- **Cap concurrency**, don't fan out. Staggered writes with a small concurrency\n  (≈4–8 in flight) are the norm; `apiModule.staggeredWrite` does this for you.\n- **Stay well under 60/minute per office**, and remember limits are *per office*\n  unless your keys have been grouped into a shared pool — in which case every\n  integration on those keys is drawing from the same budget.\n- **Batch instead of looping.** Use `/search` + `includeData=1`, `/get` with up to\n  1,000 IDs, and `bulkEntities` (≤100) rather than one call per record.\n- **Spread scheduled jobs out.** Don't have every nightly job start on the hour\n  against the same office; offset them.\n- **Back off on failure** rather than retrying immediately — retry storms are what\n  turn a blip into an outage.\n\n**Why does this spec differ from the vendor's?**\nIt's additive: everything FieldRoutes documents is here, plus endpoints and fields\nthat are real and in use but undocumented upstream, plus corrections where the\nvendor's docs are wrong. See the caveat below.\n\n**Something looks wrong here.**\n[Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues) with\nthe endpoint and what you observed. For account, key, or platform issues, go to\n**apisupport@fieldroutes.com** instead.\n\n_Doc caveats: the vendor's own docs mislabel some fields (e.g. `group.date` is last-updated, not a service date) and mark some as required that aren't. This spec corrects them._\n",
+    "description": "# FieldRoutes API — Community Reference\n\nA curated, corrected FieldRoutes OpenAPI spec — more complete than the vendor's\npublished docs (it documents ~90 endpoints and many fields FieldRoutes omits),\ncorrected for known documentation errors, and auto-synced from\n[fieldroutes.dev](https://fieldroutes.dev) every week.\n\nThis is an **unofficial** reference maintained independently of FieldRoutes.\nFor account-specific or support issues, contact **apisupport@fieldroutes.com**.\n\n**Spot an error, a stale field, or a missing endpoint?**\n[Open an issue](https://github.com/alecbolingbroke/docs/issues) —\ncorrections are welcome and get folded into the next sync.\n\n## Getting started\n\nEvery call is a POST (or GET) to `https://YOURDOMAIN.pestroutes.com/api/{entity}/{action}`\nwith `authenticationKey` + `authenticationToken` (and usually `officeID`).\n\n```\nPOST https://YOURDOMAIN.pestroutes.com/api/customer/search\nContent-Type: application/json\n\n{ \"authenticationKey\": \"…\", \"authenticationToken\": \"…\",\n  \"lname\": \"Doe\", \"includeData\": 1 }\n```\n\nYou can also pull the vendor's own raw spec at any time:\n`/api/documentation/swagger?authenticationKey=xxx&authenticationToken=xxx`.\n\n## Limits you need to design around\n\n| Limit | Value | What to do about it |\n| --- | --- | --- |\n| `/search` result set | **50,000 IDs** | Exactly 50,000 back means there are more. Page on the primary key with `>` and the last ID of the previous page until a set returns short. |\n| `/get` entities | **1,000** | Chunk your ID lists. Inputs past the limit may be silently truncated — send `authenticationKey`/`authenticationToken` **last** so a truncated request fails outright instead of half-executing. |\n| `includeData=1` on search | **1,000 resolved** | Overflow IDs come back in `{entity}IDsNoDataExported`; fetch those separately. |\n| `bulkEntities` per write | **100** | Split larger batches and stagger them. |\n| Rate | **3,000 reads + 3,000 writes per office, 60/min** | Default cap. See the FAQ on pacing before you go near it. |\n\n## Keys and office scope\n\n- By default a key is bound to **one office**: reads get an implied `officeIDs`\n  filter and writes an implied `officeID`.\n- **Global keys** may pass any `officeIDs` filter on search and any `officeID` on\n  writes (`officeIDs: 0` = all offices).\n- **Key grouping:** each key has its own read/write limits by default. Keys can be\n  grouped on request so their limits and usage aggregate into a shared pool.\n\n## Core entities\n- **Office** — a branch/market. Almost everything is scoped by `officeID`.\n- **Customer** — the account holder / serviced property (`customerID`); the hub other records hang off.\n- **Subscription** — a customer's recurring service plan (recurring revenue): service type, billing frequency, charges/addons.\n- **Appointment** — a single scheduled visit. Key fields: `date`, `status`, `assignedTech`, `spotID`, `routeID`, `cancellationReasonID`.\n- **Route** — a tech's day of stops for one `date`; carries `groupID`/`groupTitle` and `assignedTech` (`0` = unassigned). The service date lives here, not on the group.\n- **Spot** — a bookable time slot on a route (`start`/`end`, `spotCapacity`). `currentAppointment` empty = open; `blockReason` set = blocked. `/spot/reserve` holds one for `duration` minutes (a lock, not a booking).\n- **Group** — a routing template/team that routes are scheduled onto. Thin entity (`groupID`, `templateID`, `dateUpdated`); has no service date.\n- **Ticket** — an invoice / charge document.\n- **Note** — a comment on a customer/appointment; `contactType` sets the kind.\n\n## Flags & reasons\n- **Generic Flag** (`genericFlagAssignment`) — a tag attached to an entity (CUST/APPT). The flag set is defined per-office, so it's the usual place custom attributes end up (property characteristics, reason codes, campaign tags).\n- **customerFlag** — flags on the customer record (e.g. `pendingCancel`).\n- **contactType** — the note type, configured per-office under **Admin > Preferences > Notes**. The IDs are *not* portable between offices or tenants — look yours up rather than hardcoding a number you saw in someone else's integration.\n- **cancellationReason** — coded reasons an appointment was cancelled/no-showed (`cancellationReasonID`).\n\n## Try it from this page\n\nThe **Try it** tab runs real calls against your own tenant. Enter your host\n(`mycompany.fieldroutes.com`), key and token in the bar at the top, then pick an\nendpoint and hit *Execute*. Requests go **straight from your browser to your\nFieldRoutes host** — this site has no backend and never sees your credentials.\n\nWrites are blocked until you explicitly tick **Allow write operations**, because\n`create`/`update`/`delete` hit live data with no undo.\n\n## Status & scheduling\n- **Appointment status** (integer): `-1` = Cancelled · `-2` = Re-Scheduled · `0` = Pending · `1` = Completed · `2` = No Show.\n  `-2` is easy to miss and matters for reporting: an appointment that was no-showed\n  and then rescheduled **no longer carries status `2`**, so a no-show report filtered\n  on `2` alone undercounts. A reschedule also populates `rescheduleReasonID` — a\n  different lookup from `cancellationReasonID`.\n- **assignedTech** — employee on a route/appointment; `0` = none.\n- **apiCanSchedule** — send `1` on route/spot search to return only the slots the API may schedule onto — the gate for programmatic scheduling.\n\n## API conventions\n\n**`/search` → `/get`.** `/{entity}/search` returns IDs; feed them to `/{entity}/get`\nfor the full records. `includeData=1` short-circuits that for the first 1,000.\n\n**Every search parameter** takes either a plain value or a query object:\n\n```json\n{ \"dateUpdated\": { \"operator\": \">\", \"value\": \"2026-01-01 00:00:00\" } }\n```\n\n| Operator type | Accepted values |\n| --- | --- |\n| Comparison | `=` `!=` `>` `<` `>=` `<=` |\n| Set / range | `IN` `BETWEEN` |\n| Text | `LIKE` `STARTSWITH` `ENDSWITH` `CONTAINS` |\n\n**Auth** — every call needs `authenticationKey` + `authenticationToken`, and usually\n`officeID`. **accessControl** profiles (the view/edit/financial flags on an employee)\ngate what a key is allowed to do.\n\n## Silent failures you have to design around\n\nThe API's most expensive failure mode is not an error — it's a `200` that did\nnothing. Each of these has been observed in production.\n\n**A read can return `200` + `success: true` + an empty array for a record that\nexists.** There is no `429`, no `errorMessage`, and nothing to distinguish it from a\ngenuine not-found. Failures arrive in bursts, which suggests a server-side window\nrather than per-record state — the same call for the same ID succeeds minutes later.\n\n> Treat an empty read as **retryable, not as \"deleted\"**. Retry with exponential\n> backoff and jitter, bounded by a budget that stays under your own function's\n> timeout. Code that does `if (!rows.length) throw new Error('not found')` will\n> silently drop real records.\n\n**A write can return `200` with `success: false` in the body.** Check `success` on\nevery mutating call; the HTTP status alone will not tell you the write landed.\n\n**A write can also report success while ignoring part of your payload.** Look for\n**`ignoredParams`** in the response — a parameter the endpoint does not accept is\ndropped there rather than rejected. Notably, `/appointment/update` accepts\n`cancelledBy` but ignores `cancellationReasonID`; the latter is cleared by the\nplatform when an appointment leaves No Show status and cannot be written back\nthrough any update endpoint. If you need that reason to survive a status change,\npersist it yourself before the transition, or read it from a flag instead.\n\n**Read your writes back when it matters.** For flag assignments in particular, a\n`200` is not proof the assignment is visible. Make the read-back advisory — alert on\na mismatch rather than aborting, or a false negative will abort work that actually\nsucceeded.\n\n### Singular vs plural parameter names are load-bearing\n\nSeveral endpoints accept a plural filter and **silently ignore the singular form**,\nwhich fails in the worst possible direction — not an error, not an empty set, but a\nwrong result set that looks plausible:\n\n| Endpoint | Correct | What the singular does |\n| --- | --- | --- |\n| `/genericFlagAssignment/search` | `entityIDs` | `entityID` is ignored — returns **every assignment in the system** |\n| `/appointment/search` | `customerIDs` | `customerID` lands in `ignoredParams` — returns **every appointment** (capped at 50,000) |\n| `/appointment/search` | `officeIDs` | singular `officeID` returns `count: 0` |\n\n**`/genericFlagAssignment/*` search and get need `officeIDs: 0` and must not receive\na singular `officeID` at all.** Sending `officeID` alone returns `count: 0`, and\nsending **both** `officeID` and `officeIDs: 0` also returns `count: 0`. If you have a\nshared request helper that injects `officeID` on every call, it needs an escape hatch\nfor these endpoints.\n\n**`/appointment/search` defaults to `status IN (0,1)`.** No Show, Re-Scheduled and Cancelled\nare excluded unless you pass `status` explicitly, so any report built on an unfiltered\nappointment search undercounts silently.\n\n### Credentials come back in every response\n\nResponses echo the `authenticationKey` and `authenticationToken` you sent inside a\n`params` object, and most HTTP clients attach the outbound request body to their\nerror objects too. **So `console.error(err)` or logging `err.response.data` writes\nlive credentials into your logs**, where they persist for the retention window.\n\n> Log the status and `errorMessage`, never the whole body — and if you find you have\n> been logging it, rotating the key is the remediation, not just fixing the log line.\n\n### Trigger-rule webhooks\n\nIf you drive integrations from FieldRoutes' trigger rules rather than by polling:\n\n- **They post `multipart/form-data`, not JSON.** Serverless platforms commonly leave\n  multipart bodies unparsed, so a handler written for JSON sees an unparsed buffer and\n  reports fields \"missing\" when every field was present.\n- **A failed delivery is not retried.** There is no redelivery and no dead-letter\n  queue, so if your handler drops the request the event is gone. Return `200` and\n  handle failures internally, or accept that non-2xx means the event is lost.\n- **They fire on a status *transition*.** Applying a flag or setting a field without\n  moving the status will not fire a rule that watches that transition — which is why\n  a record can look correctly tagged in the UI while no notification ever went out.\n\n## Building tools against this spec\n\nThe published spec carries extra metadata to make code generation and agent tooling\nstraightforward — it's the intended backbone for an MCP server or SDK:\n\n- **`tags`** — every operation is tagged with its entity (`customer`, `spot`, …), and\n  `x-tagGroups` sorts those 62 entities into six sections. Natural tool namespaces.\n- **`x-fr-write: true`** — set on every mutating operation. Use it to gate writes\n  behind confirmation, or to expose a read-only tool surface by default.\n- **Machine-readable artifacts** — `fieldroutes-swagger-docs.json` (canonical) and\n  `fieldroutes-swagger-docs.with-summaries.json` (adds human-readable operation\n  titles). Both are regenerated by the same weekly pipeline as this page.\n\nNote that `produces` is corrected to `application/json` here. FieldRoutes declares\n`text/html`, but the API is content-negotiated and answers a request for text/html\nwith a **406** — a client that honours the vendor's declared type gets rejected.\n\n## Common workflows\n\nExamples below use the vendor's `apiModule` JS helper (from\n[fieldroutes.dev/examples](https://fieldroutes.dev/examples), which has the full\nrunnable set); the same shapes apply to any HTTP client.\n\n**Incremental sync — pull everything changed since your last run**\n\n```js\napiModule.search('customer', {\n  dateUpdated: { operator: '>', value: '2022-03-01 00:00:00' },\n  includeData: 1\n}, /* fullResult */ 1).then(console.log);\n```\n\n**Global lookup by phone (global key)**\n\n```js\napiModule.search('customer', { officeIDs: 0, phone: '5558675309', includeData: 1 });\n```\n\n**Create a customer with a subscription**\n\n```js\napiModule.call('customer', 'create', { fname: 'John', lname: 'Doe' })\n  .then(r => apiModule.call('subscription', 'create', {\n    customerID: r.result,\n    serviceID: 1,\n    active: 1,\n    initialCharge: 200,      // charged on the initial service\n    serviceCharge: 100,      // charged per recurring service\n    agreementLength: 12,     // months\n    preferredDays: 4,        // 0=SUN … 6=SAT\n    preferredStart: '09:00:00',\n    preferredEnd: '17:00:00',\n    preferredTech: 1         // employeeID; 0 = no preference\n  }));\n```\n\n**Turn a subscription into a lead** — create it, then set the lead stage via\n`subscription/updateLeadStage` (`stageID` + `status`).\n\n**Addons** — both `initialAddons` and recurring `addons` take\n`{ description, quantity, amount, productID, serviceID, taxable, creditTo, unitID }`.\nA negative `amount` is a discount.\n\n**Payment profiles** — `paymentProfile/create` with `paymentMethod` `1` = credit\ncard, `2` = ACH, plus `gateway` (`payrix`, `authorize`, `nmi`, `brain`, `element`).\nCard profiles take `merchantID`/`merchantToken` from the gateway's tokenizer; ACH\ntakes `accountNumber`/`routingNumber`. **Confirm the active gateway with the office\nadmin first** — profiles created against an inactive gateway may be unusable.\nRefunds are `payment/createRefund` with `paymentID` + `amount`.\n\n**Bulk write (≤100 per request)**\n\n```js\napiModule.call('customer', 'create', {\n  officeID: 1,\n  bulkEntities: [{ fname: 'A', lname: 'One' }, { fname: 'B', lname: 'Two' }]\n});\n```\n\nFor large update sets driven off a search or CSV, stagger the writes\n(`apiModule.staggeredWrite(entity, action, rows, concurrency)`) rather than firing\nthem all at once.\n\n**Documents & contracts** — `document/createEncoded` (`encodedFile`) and\n`contract/create` (`base64EncodedFile`) take base64 with the data-URL prefix\nstripped.\n\n**dataLink** — attach arbitrary JSON to a record (`dataLink` on create/update, or\nthe `dataLink` entity). Pass `dataLink: 1` on search/get to have it resolved back.\n\n**Find the best spot for an address**\n\n```js\napiModule.search('route', {\n  date: { operator: 'between', value: ['2020-09-24', '2020-09-30'] },\n  latitude: lat, longitude: lng, apiCanSchedule: 1, includeData: 1\n})\n// sort routes by averageDistance, take the closest few, then:\n.then(routeIDs => apiModule.search('spot', {\n  routeIDs, date: dateFilter, latitude: lat, longitude: lng,\n  apiCanSchedule: 1, ignoreInitialDriveTime: 1, includeData: 1\n}));\n```\n\nSpots come back ordered by distance from the tech's previous stop, so the first\n`open` spot is usually the right one. If the appointment `duration` exceeds\n`spotCapacity`, walk `nextSpotID` until the full duration is covered.\n`ignoreInitialDriveTime: 1` stops the tech's start/end location from being weighed\nonce a route already has an appointment on it.\n\n**Hiding keys from the browser** — don't ship `authenticationKey`/`Token` to a\nfront end. Proxy through your own middleware and inject the credentials\nserver-side.\n\n## FAQ\n\n**Can we increase our API limits?**\nPremium API limits are capped by default at **3,000 reads and 3,000 writes per\noffice, at 60/minute**. If your needs exceed that, email\n**apisupport@fieldroutes.com** for a consultation.\n\n**Something went wrong — are there request logs?**\nYes. Reach out to **apisupport@fieldroutes.com** and they can pull them.\n\n**How should I pace my requests?**\nThrottle deliberately and treat the per-office limits as a shared budget, not a\ntarget. A few practical rules that hold up well in production:\n\n- **Never spike the API.** Bursting through a large ID list at full speed will\n  exhaust an office's read or write budget and degrade every other integration\n  (and the FieldRoutes UI) pointed at that office.\n- **Cap concurrency**, don't fan out. Staggered writes with a small concurrency\n  (≈4–8 in flight) are the norm; `apiModule.staggeredWrite` does this for you.\n- **Stay well under 60/minute per office**, and remember limits are *per office*\n  unless your keys have been grouped into a shared pool — in which case every\n  integration on those keys is drawing from the same budget.\n- **Batch instead of looping.** Use `/search` + `includeData=1`, `/get` with up to\n  1,000 IDs, and `bulkEntities` (≤100) rather than one call per record.\n- **Spread scheduled jobs out.** Don't have every nightly job start on the hour\n  against the same office; offset them.\n- **Back off on failure** rather than retrying immediately — retry storms are what\n  turn a blip into an outage.\n\n**Why does this spec differ from the vendor's?**\nIt's additive: everything FieldRoutes documents is here, plus endpoints and fields\nthat are real and in use but undocumented upstream, plus corrections where the\nvendor's docs are wrong. See the caveat below.\n\n**Something looks wrong here.**\n[Open an issue](https://github.com/alecbolingbroke/docs/issues) with\nthe endpoint and what you observed. For account, key, or platform issues, go to\n**apisupport@fieldroutes.com** instead.\n\n_Doc caveats: the vendor's own docs mislabel some fields (e.g. `group.date` is last-updated, not a service date) and mark some as required that aren't. This spec corrects them._\n",
     "x-corrections-applied": true
   },
   "paths": {
     "/subscription/search": {
       "post": {
-        "summary": "Subscription Search",
+        "summary": "search",
         "operationId": "subscriptionSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -298,7 +298,7 @@
     },
     "/subscription/get": {
       "post": {
-        "summary": "Subscription Get Bulk",
+        "summary": "getBulk",
         "operationId": "subscriptionGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -357,7 +357,7 @@
     },
     "/subscription/[id]": {
       "post": {
-        "summary": "Subscription Get ID",
+        "summary": "getSingle",
         "operationId": "subscriptionGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -405,7 +405,7 @@
     },
     "/subscription/create": {
       "post": {
-        "summary": "Subscription Create",
+        "summary": "create",
         "operationId": "subscriptionCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -765,7 +765,7 @@
     },
     "/subscription/update": {
       "post": {
-        "summary": "Subscription Update",
+        "summary": "update",
         "operationId": "subscriptionUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1129,7 +1129,7 @@
     },
     "/subscription/getInitialAddOns": {
       "post": {
-        "summary": "Subscription Get Initial Add Ons",
+        "summary": "getInitialAddOns",
         "operationId": "subscriptionGetInitialAddOns",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1170,7 +1170,7 @@
     },
     "/subscription/createInitialAddOn": {
       "post": {
-        "summary": "Subscription Create Initial Add On",
+        "summary": "createInitialAddOn",
         "operationId": "subscriptionCreateInitialAddOn",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1261,7 +1261,7 @@
     },
     "/subscription/updateInitialAddOn": {
       "post": {
-        "summary": "Subscription Update Initial Add On",
+        "summary": "updateInitialAddOn",
         "operationId": "subscriptionUpdateInitialAddOn",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1359,7 +1359,7 @@
     },
     "/subscription/deleteInitialAddOn": {
       "post": {
-        "summary": "Subscription Delete Initial Add On",
+        "summary": "deleteInitialAddOn",
         "operationId": "subscriptionDeleteInitialAddOn",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1408,7 +1408,7 @@
     },
     "/subscription/setInitialAddOns": {
       "post": {
-        "summary": "Subscription Set Initial Add Ons",
+        "summary": "setInitialAddOns",
         "operationId": "subscriptionSetInitialAddOns",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1461,7 +1461,7 @@
     },
     "/subscription/updateLeadStage": {
       "post": {
-        "summary": "Subscription Update Lead Stage",
+        "summary": "updateLeadStage",
         "operationId": "subscriptionUpdateLeadStage",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1531,7 +1531,7 @@
     },
     "/subscription/delete": {
       "post": {
-        "summary": "Subscription Delete",
+        "summary": "delete",
         "operationId": "subscriptionDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1573,7 +1573,7 @@
     },
     "/customer/search": {
       "post": {
-        "summary": "Customer Search",
+        "summary": "search",
         "operationId": "customerSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1829,7 +1829,7 @@
     },
     "/customer/get": {
       "post": {
-        "summary": "Customer Get Bulk",
+        "summary": "getBulk",
         "operationId": "customerGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1909,7 +1909,7 @@
     },
     "/customer/[id]": {
       "post": {
-        "summary": "Customer Get ID",
+        "summary": "getSingle",
         "operationId": "customerGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -1978,7 +1978,7 @@
     },
     "/customer/createPaymentProfile": {
       "post": {
-        "summary": "Customer Create Payment Profile",
+        "summary": "createPaymentProfile",
         "operationId": "customerCreatePaymentProfile",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -2034,7 +2034,7 @@
     },
     "/customer/updatePaymentProfile": {
       "post": {
-        "summary": "Customer Update Payment Profile",
+        "summary": "updatePaymentProfile",
         "operationId": "customerUpdatePaymentProfile",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -2118,7 +2118,7 @@
     },
     "/customer/create": {
       "post": {
-        "summary": "Customer Create",
+        "summary": "create",
         "operationId": "customerCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -2658,7 +2658,7 @@
     },
     "/customer/update": {
       "post": {
-        "summary": "Customer Update",
+        "summary": "update",
         "operationId": "customerUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3204,7 +3204,7 @@
     },
     "/customerFlag/search": {
       "post": {
-        "summary": "Customer Flag Search",
+        "summary": "search",
         "operationId": "customerFlagSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3256,7 +3256,7 @@
     },
     "/customerFlag/get": {
       "post": {
-        "summary": "Customer Flag Get Bulk",
+        "summary": "getBulk",
         "operationId": "customerFlagGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3308,7 +3308,7 @@
     },
     "/customerFlag/[id]": {
       "post": {
-        "summary": "Customer Flag Get ID",
+        "summary": "getSingle",
         "operationId": "customerFlagGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3349,7 +3349,7 @@
     },
     "/customerFlag/update": {
       "post": {
-        "summary": "Customer Flag Update",
+        "summary": "update",
         "operationId": "customerFlagUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3447,7 +3447,7 @@
     },
     "/ticket/search": {
       "post": {
-        "summary": "Ticket Search",
+        "summary": "search",
         "operationId": "ticketSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3581,7 +3581,7 @@
     },
     "/ticket/get": {
       "post": {
-        "summary": "Ticket Get Bulk",
+        "summary": "getBulk",
         "operationId": "ticketGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3626,7 +3626,7 @@
     },
     "/ticket/[id]": {
       "post": {
-        "summary": "Ticket Get ID",
+        "summary": "getSingle",
         "operationId": "ticketGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3659,7 +3659,7 @@
     },
     "/ticket/create": {
       "post": {
-        "summary": "Ticket Create",
+        "summary": "create",
         "operationId": "ticketCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3783,7 +3783,7 @@
     },
     "/ticket/update": {
       "post": {
-        "summary": "Ticket Update",
+        "summary": "update",
         "operationId": "ticketUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3912,7 +3912,7 @@
     },
     "/ticket/delete": {
       "post": {
-        "summary": "Ticket Delete",
+        "summary": "delete",
         "operationId": "ticketDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3954,7 +3954,7 @@
     },
     "/ticket/getAddOns": {
       "post": {
-        "summary": "Ticket Get Add Ons",
+        "summary": "getAddOns",
         "operationId": "ticketGetAddOns",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -3995,7 +3995,7 @@
     },
     "/ticket/createAddOn": {
       "post": {
-        "summary": "Ticket Create Add On",
+        "summary": "createAddOn",
         "operationId": "ticketCreateAddOn",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -4098,7 +4098,7 @@
     },
     "/ticket/updateAddOn": {
       "post": {
-        "summary": "Ticket Update Add On",
+        "summary": "updateAddOn",
         "operationId": "ticketUpdateAddOn",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -4203,7 +4203,7 @@
     },
     "/ticket/setAddOns": {
       "post": {
-        "summary": "Ticket Set Add Ons",
+        "summary": "setAddOns",
         "operationId": "ticketSetAddOns",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -4256,7 +4256,7 @@
     },
     "/ticket/deleteAddOn": {
       "post": {
-        "summary": "Ticket Delete Add On",
+        "summary": "deleteAddOn",
         "operationId": "ticketDeleteAddOn",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -4305,7 +4305,7 @@
     },
     "/appointment/search": {
       "post": {
-        "summary": "Appointment Search",
+        "summary": "search",
         "operationId": "appointmentSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -4517,7 +4517,7 @@
     },
     "/appointment/get": {
       "post": {
-        "summary": "Appointment Get Bulk",
+        "summary": "getBulk",
         "operationId": "appointmentGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -4597,7 +4597,7 @@
     },
     "/appointment/[id]": {
       "post": {
-        "summary": "Appointment Get ID",
+        "summary": "getSingle",
         "operationId": "appointmentGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -4666,7 +4666,7 @@
     },
     "/appointment/create": {
       "post": {
-        "summary": "Appointment Create",
+        "summary": "create",
         "operationId": "appointmentCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -4884,7 +4884,7 @@
     },
     "/appointment/update": {
       "post": {
-        "summary": "Appointment Update",
+        "summary": "update",
         "operationId": "appointmentUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -5168,7 +5168,7 @@
     },
     "/appointment/cancel": {
       "post": {
-        "summary": "Appointment Cancel",
+        "summary": "cancel",
         "operationId": "appointmentCancel",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -5225,7 +5225,7 @@
     },
     "/appointment/complete": {
       "post": {
-        "summary": "Appointment Complete",
+        "summary": "complete",
         "operationId": "appointmentComplete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -5445,7 +5445,7 @@
     },
     "/employee/search": {
       "post": {
-        "summary": "Employee Search",
+        "summary": "search",
         "operationId": "employeeSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -5588,7 +5588,7 @@
     },
     "/employee/get": {
       "post": {
-        "summary": "Employee Get Bulk",
+        "summary": "getBulk",
         "operationId": "employeeGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -5640,7 +5640,7 @@
     },
     "/employee/[id]": {
       "post": {
-        "summary": "Employee Get ID",
+        "summary": "getSingle",
         "operationId": "employeeGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -5681,7 +5681,7 @@
     },
     "/employee/create": {
       "post": {
-        "summary": "Employee Create",
+        "summary": "create",
         "operationId": "employeeCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -5943,7 +5943,7 @@
     },
     "/employee/update": {
       "post": {
-        "summary": "Employee Update",
+        "summary": "update",
         "operationId": "employeeUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6219,7 +6219,7 @@
     },
     "/employee/dealias": {
       "post": {
-        "summary": "Employee Dealias",
+        "summary": "dealias",
         "operationId": "employeeDealias",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6282,7 +6282,7 @@
     },
     "/employee/reset": {
       "post": {
-        "summary": "Employee Reset",
+        "summary": "reset",
         "operationId": "employeeReset",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6345,7 +6345,7 @@
     },
     "/serviceType/search": {
       "post": {
-        "summary": "Service Type Search",
+        "summary": "search",
         "operationId": "serviceTypeSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6421,7 +6421,7 @@
     },
     "/serviceType/get": {
       "post": {
-        "summary": "Service Type Get Bulk",
+        "summary": "getBulk",
         "operationId": "serviceTypeGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6473,7 +6473,7 @@
     },
     "/serviceType/[id]": {
       "post": {
-        "summary": "Service Type Get ID",
+        "summary": "getSingle",
         "operationId": "serviceTypeGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6514,7 +6514,7 @@
     },
     "/payment/search": {
       "post": {
-        "summary": "Payment Search",
+        "summary": "search",
         "operationId": "paymentSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6632,7 +6632,7 @@
     },
     "/payment/get": {
       "post": {
-        "summary": "Payment Get Bulk",
+        "summary": "getBulk",
         "operationId": "paymentGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6677,7 +6677,7 @@
     },
     "/payment/[id]": {
       "post": {
-        "summary": "Payment Get ID",
+        "summary": "getSingle",
         "operationId": "paymentGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6710,7 +6710,7 @@
     },
     "/payment/create": {
       "post": {
-        "summary": "Payment Create",
+        "summary": "create",
         "operationId": "paymentCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6829,7 +6829,7 @@
     },
     "/payment/createRefund": {
       "post": {
-        "summary": "Payment Create Refund",
+        "summary": "createRefund",
         "operationId": "paymentCreateRefund",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6892,7 +6892,7 @@
     },
     "/payment/createWriteoff": {
       "post": {
-        "summary": "Payment Create Writeoff",
+        "summary": "createWriteoff",
         "operationId": "paymentCreateWriteoff",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -6962,7 +6962,7 @@
     },
     "/contract/search": {
       "post": {
-        "summary": "Contract Search",
+        "summary": "search",
         "operationId": "contractSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7044,7 +7044,7 @@
     },
     "/contract/get": {
       "post": {
-        "summary": "Contract Get Bulk",
+        "summary": "getBulk",
         "operationId": "contractGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7096,7 +7096,7 @@
     },
     "/contract/[id]": {
       "post": {
-        "summary": "Contract Get ID",
+        "summary": "getSingle",
         "operationId": "contractGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7137,7 +7137,7 @@
     },
     "/contract/create": {
       "post": {
-        "summary": "Contract Create",
+        "summary": "create",
         "operationId": "contractCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7223,7 +7223,7 @@
     },
     "/contract/update": {
       "post": {
-        "summary": "Contract Update",
+        "summary": "update",
         "operationId": "contractUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7323,7 +7323,7 @@
     },
     "/contract/delete": {
       "post": {
-        "summary": "Contract Delete",
+        "summary": "delete",
         "operationId": "contractDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7365,7 +7365,7 @@
     },
     "/review/search": {
       "post": {
-        "summary": "Review Search",
+        "summary": "search",
         "operationId": "reviewSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7447,7 +7447,7 @@
     },
     "/review/get": {
       "post": {
-        "summary": "Review Get Bulk",
+        "summary": "getBulk",
         "operationId": "reviewGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7513,7 +7513,7 @@
     },
     "/review/[id]": {
       "post": {
-        "summary": "Review Get ID",
+        "summary": "getSingle",
         "operationId": "reviewGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7568,7 +7568,7 @@
     },
     "/review/summary": {
       "post": {
-        "summary": "Review Summary",
+        "summary": "summary",
         "operationId": "reviewSummary",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7656,7 +7656,7 @@
     },
     "/review/create": {
       "post": {
-        "summary": "Review Create",
+        "summary": "create",
         "operationId": "reviewCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7726,7 +7726,7 @@
     },
     "/review/update": {
       "post": {
-        "summary": "Review Update",
+        "summary": "update",
         "operationId": "reviewUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7803,7 +7803,7 @@
     },
     "/review/delete": {
       "post": {
-        "summary": "Review Delete",
+        "summary": "delete",
         "operationId": "reviewDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7845,7 +7845,7 @@
     },
     "/note/search": {
       "post": {
-        "summary": "Note Search",
+        "summary": "search",
         "operationId": "noteSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7951,7 +7951,7 @@
     },
     "/note/get": {
       "post": {
-        "summary": "Note Get Bulk",
+        "summary": "getBulk",
         "operationId": "noteGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -7996,7 +7996,7 @@
     },
     "/note/[id]": {
       "post": {
-        "summary": "Note Get ID",
+        "summary": "getSingle",
         "operationId": "noteGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8029,7 +8029,7 @@
     },
     "/note/create": {
       "post": {
-        "summary": "Note Create",
+        "summary": "create",
         "operationId": "noteCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8141,7 +8141,7 @@
     },
     "/note/update": {
       "post": {
-        "summary": "Note Update",
+        "summary": "update",
         "operationId": "noteUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8260,7 +8260,7 @@
     },
     "/note/delete": {
       "post": {
-        "summary": "Note Delete",
+        "summary": "delete",
         "operationId": "noteDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8309,7 +8309,7 @@
     },
     "/changelog/search": {
       "post": {
-        "summary": "Changelog Search",
+        "summary": "search",
         "operationId": "changelogSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8385,7 +8385,7 @@
     },
     "/changelog/get": {
       "post": {
-        "summary": "Changelog Get Bulk",
+        "summary": "getBulk",
         "operationId": "changelogGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8430,7 +8430,7 @@
     },
     "/changelog/[id]": {
       "post": {
-        "summary": "Changelog Get ID",
+        "summary": "getSingle",
         "operationId": "changelogGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8463,7 +8463,7 @@
     },
     "/document/search": {
       "post": {
-        "summary": "Document Search",
+        "summary": "search",
         "operationId": "documentSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8563,7 +8563,7 @@
     },
     "/document/get": {
       "post": {
-        "summary": "Document Get Bulk",
+        "summary": "getBulk",
         "operationId": "documentGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8615,7 +8615,7 @@
     },
     "/document/[id]": {
       "post": {
-        "summary": "Document Get ID",
+        "summary": "getSingle",
         "operationId": "documentGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8656,7 +8656,7 @@
     },
     "/document/create": {
       "post": {
-        "summary": "Document Create",
+        "summary": "create",
         "operationId": "documentCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8726,7 +8726,7 @@
     },
     "/document/createEncoded": {
       "post": {
-        "summary": "Document Create Encoded",
+        "summary": "createEncoded",
         "operationId": "documentCreateEncoded",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8810,7 +8810,7 @@
     },
     "/document/update": {
       "post": {
-        "summary": "Document Update",
+        "summary": "update",
         "operationId": "documentUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8887,7 +8887,7 @@
     },
     "/document/delete": {
       "post": {
-        "summary": "Document Delete",
+        "summary": "delete",
         "operationId": "documentDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -8936,7 +8936,7 @@
     },
     "/route/search": {
       "post": {
-        "summary": "Route Search",
+        "summary": "search",
         "operationId": "routeSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9054,7 +9054,7 @@
     },
     "/route/get": {
       "post": {
-        "summary": "Route Get Bulk",
+        "summary": "getBulk",
         "operationId": "routeGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9120,7 +9120,7 @@
     },
     "/route/[id]": {
       "post": {
-        "summary": "Route Get ID",
+        "summary": "getSingle",
         "operationId": "routeGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9175,7 +9175,7 @@
     },
     "/route/create": {
       "post": {
-        "summary": "Route Create",
+        "summary": "create",
         "operationId": "routeCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9253,7 +9253,7 @@
     },
     "/route/update": {
       "post": {
-        "summary": "Route Update",
+        "summary": "update",
         "operationId": "routeUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9330,7 +9330,7 @@
     },
     "/route/updateDistanceScore": {
       "post": {
-        "summary": "Route Update Distance Score",
+        "summary": "updateDistanceScore",
         "operationId": "routeUpdateDistanceScore",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9375,7 +9375,7 @@
     },
     "/route/delete": {
       "post": {
-        "summary": "Route Delete",
+        "summary": "delete",
         "operationId": "routeDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9417,7 +9417,7 @@
     },
     "/spot/search": {
       "post": {
-        "summary": "Spot Search",
+        "summary": "search",
         "operationId": "spotSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9518,7 +9518,7 @@
     },
     "/spot/get": {
       "post": {
-        "summary": "Spot Get Bulk",
+        "summary": "getBulk",
         "operationId": "spotGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9605,7 +9605,7 @@
     },
     "/spot/[id]": {
       "post": {
-        "summary": "Spot Get ID",
+        "summary": "getSingle",
         "operationId": "spotGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9681,7 +9681,7 @@
     },
     "/spot/getSimple": {
       "post": {
-        "summary": "Spot Get Simple",
+        "summary": "getSimple",
         "operationId": "spotGetSimple",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9725,7 +9725,7 @@
     },
     "/spot/reserve": {
       "post": {
-        "summary": "Spot Reserve",
+        "summary": "reserve",
         "operationId": "spotReserve",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9786,7 +9786,7 @@
     },
     "/spot/release": {
       "post": {
-        "summary": "Spot Release",
+        "summary": "release",
         "operationId": "spotRelease",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9829,7 +9829,7 @@
     },
     "/spot/block": {
       "post": {
-        "summary": "Spot Block",
+        "summary": "block",
         "operationId": "spotBlock",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9894,7 +9894,7 @@
     },
     "/spot/unblock": {
       "post": {
-        "summary": "Spot Unblock",
+        "summary": "unblock",
         "operationId": "spotUnblock",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -9948,7 +9948,7 @@
     },
     "/genericFlag/search": {
       "post": {
-        "summary": "Generic Flag Search",
+        "summary": "search",
         "operationId": "genericFlagSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10036,7 +10036,7 @@
     },
     "/genericFlag/get": {
       "post": {
-        "summary": "Generic Flag Get Bulk",
+        "summary": "getBulk",
         "operationId": "genericFlagGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10081,7 +10081,7 @@
     },
     "/genericFlag/[id]": {
       "post": {
-        "summary": "Generic Flag Get ID",
+        "summary": "getSingle",
         "operationId": "genericFlagGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10114,7 +10114,7 @@
     },
     "/genericFlag/create": {
       "post": {
-        "summary": "Generic Flag Create",
+        "summary": "create",
         "operationId": "genericFlagCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10186,7 +10186,7 @@
     },
     "/genericFlag/update": {
       "post": {
-        "summary": "Generic Flag Update",
+        "summary": "update",
         "operationId": "genericFlagUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10263,7 +10263,7 @@
     },
     "/genericFlagAssignment/search": {
       "post": {
-        "summary": "Generic Flag Assignment Search",
+        "summary": "search",
         "operationId": "genericFlagAssignmentSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10351,7 +10351,7 @@
     },
     "/genericFlagAssignment/get": {
       "post": {
-        "summary": "Generic Flag Assignment Get Bulk",
+        "summary": "getBulk",
         "operationId": "genericFlagAssignmentGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10396,7 +10396,7 @@
     },
     "/genericFlagAssignment/[id]": {
       "post": {
-        "summary": "Generic Flag Assignment Get ID",
+        "summary": "getSingle",
         "operationId": "genericFlagAssignmentGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10429,7 +10429,7 @@
     },
     "/genericFlagAssignment/create": {
       "post": {
-        "summary": "Generic Flag Assignment Create",
+        "summary": "create",
         "operationId": "genericFlagAssignmentCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10485,7 +10485,7 @@
     },
     "/genericFlagAssignment/update": {
       "post": {
-        "summary": "Generic Flag Assignment Update",
+        "summary": "update",
         "operationId": "genericFlagAssignmentUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10534,7 +10534,7 @@
     },
     "/genericFlagAssignment/delete": {
       "post": {
-        "summary": "Generic Flag Assignment Delete",
+        "summary": "delete",
         "operationId": "genericFlagAssignmentDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10576,7 +10576,7 @@
     },
     "/team/search": {
       "post": {
-        "summary": "Team Search",
+        "summary": "search",
         "operationId": "teamSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10655,7 +10655,7 @@
     },
     "/team/get": {
       "post": {
-        "summary": "Team Get Bulk",
+        "summary": "getBulk",
         "operationId": "teamGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10700,7 +10700,7 @@
     },
     "/team/[id]": {
       "post": {
-        "summary": "Team Get ID",
+        "summary": "getSingle",
         "operationId": "teamGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -10733,7 +10733,7 @@
     },
     "/accessControl/search": {
       "post": {
-        "summary": "Access Control Search",
+        "summary": "search",
         "operationId": "accessControlSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11493,7 +11493,7 @@
     },
     "/accessControl/get": {
       "post": {
-        "summary": "Access Control Get Bulk",
+        "summary": "getBulk",
         "operationId": "accessControlGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11538,7 +11538,7 @@
     },
     "/accessControl/[id]": {
       "post": {
-        "summary": "Access Control Get ID",
+        "summary": "getSingle",
         "operationId": "accessControlGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11571,7 +11571,7 @@
     },
     "/unit/search": {
       "post": {
-        "summary": "Unit Search",
+        "summary": "search",
         "operationId": "unitSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11629,7 +11629,7 @@
     },
     "/unit/get": {
       "post": {
-        "summary": "Unit Get Bulk",
+        "summary": "getBulk",
         "operationId": "unitGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11674,7 +11674,7 @@
     },
     "/unit/[id]": {
       "post": {
-        "summary": "Unit Get ID",
+        "summary": "getSingle",
         "operationId": "unitGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11707,7 +11707,7 @@
     },
     "/timeClock/search": {
       "post": {
-        "summary": "Time Clock Search",
+        "summary": "search",
         "operationId": "timeClockSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11789,7 +11789,7 @@
     },
     "/timeClock/get": {
       "post": {
-        "summary": "Time Clock Get Bulk",
+        "summary": "getBulk",
         "operationId": "timeClockGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11834,7 +11834,7 @@
     },
     "/timeClock/[id]": {
       "post": {
-        "summary": "Time Clock Get ID",
+        "summary": "getSingle",
         "operationId": "timeClockGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11867,7 +11867,7 @@
     },
     "/timeClockCategory/search": {
       "post": {
-        "summary": "Time Clock Category Search",
+        "summary": "search",
         "operationId": "timeClockCategorySearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -11955,7 +11955,7 @@
     },
     "/timeClockCategory/get": {
       "post": {
-        "summary": "Time Clock Category Get Bulk",
+        "summary": "getBulk",
         "operationId": "timeClockCategoryGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12000,7 +12000,7 @@
     },
     "/timeClockCategory/[id]": {
       "post": {
-        "summary": "Time Clock Category Get ID",
+        "summary": "getSingle",
         "operationId": "timeClockCategoryGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12033,7 +12033,7 @@
     },
     "/region/search": {
       "post": {
-        "summary": "Region Search",
+        "summary": "search",
         "operationId": "regionSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12115,7 +12115,7 @@
     },
     "/region/get": {
       "post": {
-        "summary": "Region Get Bulk",
+        "summary": "getBulk",
         "operationId": "regionGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12160,7 +12160,7 @@
     },
     "/region/[id]": {
       "post": {
-        "summary": "Region Get ID",
+        "summary": "getSingle",
         "operationId": "regionGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12193,7 +12193,7 @@
     },
     "/task/search": {
       "post": {
-        "summary": "Task Search",
+        "summary": "search",
         "operationId": "taskSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12323,7 +12323,7 @@
     },
     "/task/get": {
       "post": {
-        "summary": "Task Get Bulk",
+        "summary": "getBulk",
         "operationId": "taskGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12368,7 +12368,7 @@
     },
     "/task/[id]": {
       "post": {
-        "summary": "Task Get ID",
+        "summary": "getSingle",
         "operationId": "taskGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12401,7 +12401,7 @@
     },
     "/task/create": {
       "post": {
-        "summary": "Task Create",
+        "summary": "create",
         "operationId": "taskCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12537,7 +12537,7 @@
     },
     "/task/update": {
       "post": {
-        "summary": "Task Update",
+        "summary": "update",
         "operationId": "taskUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12670,7 +12670,7 @@
     },
     "/employeeLocation/search": {
       "post": {
-        "summary": "Employee Location Search",
+        "summary": "search",
         "operationId": "employeeLocationSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12734,7 +12734,7 @@
     },
     "/employeeLocation/get": {
       "post": {
-        "summary": "Employee Location Get Bulk",
+        "summary": "getBulk",
         "operationId": "employeeLocationGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12779,7 +12779,7 @@
     },
     "/employeeLocation/[id]": {
       "post": {
-        "summary": "Employee Location Get ID",
+        "summary": "getSingle",
         "operationId": "employeeLocationGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12812,7 +12812,7 @@
     },
     "/form/search": {
       "post": {
-        "summary": "Form Search",
+        "summary": "search",
         "operationId": "formSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12912,7 +12912,7 @@
     },
     "/form/get": {
       "post": {
-        "summary": "Form Get Bulk",
+        "summary": "getBulk",
         "operationId": "formGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -12964,7 +12964,7 @@
     },
     "/form/[id]": {
       "post": {
-        "summary": "Form Get ID",
+        "summary": "getSingle",
         "operationId": "formGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13005,7 +13005,7 @@
     },
     "/product/search": {
       "post": {
-        "summary": "Product Search",
+        "summary": "search",
         "operationId": "productSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13087,7 +13087,7 @@
     },
     "/product/get": {
       "post": {
-        "summary": "Product Get Bulk",
+        "summary": "getBulk",
         "operationId": "productGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13132,7 +13132,7 @@
     },
     "/product/[id]": {
       "post": {
-        "summary": "Product Get ID",
+        "summary": "getSingle",
         "operationId": "productGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13165,7 +13165,7 @@
     },
     "/product/create": {
       "post": {
-        "summary": "Product Create",
+        "summary": "create",
         "operationId": "productCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13263,7 +13263,7 @@
     },
     "/product/update": {
       "post": {
-        "summary": "Product Update",
+        "summary": "update",
         "operationId": "productUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13368,7 +13368,7 @@
     },
     "/appointmentReminder/search": {
       "post": {
-        "summary": "Appointment Reminder Search",
+        "summary": "search",
         "operationId": "appointmentReminderSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13504,7 +13504,7 @@
     },
     "/appointmentReminder/get": {
       "post": {
-        "summary": "Appointment Reminder Get Bulk",
+        "summary": "getBulk",
         "operationId": "appointmentReminderGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13549,7 +13549,7 @@
     },
     "/appointmentReminder/[id]": {
       "post": {
-        "summary": "Appointment Reminder Get ID",
+        "summary": "getSingle",
         "operationId": "appointmentReminderGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13582,7 +13582,7 @@
     },
     "/appointmentReminder/create": {
       "post": {
-        "summary": "Appointment Reminder Create",
+        "summary": "create",
         "operationId": "appointmentReminderCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13700,7 +13700,7 @@
     },
     "/appointmentReminder/update": {
       "post": {
-        "summary": "Appointment Reminder Update",
+        "summary": "update",
         "operationId": "appointmentReminderUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13819,7 +13819,7 @@
     },
     "/paymentProfile/search": {
       "post": {
-        "summary": "Payment Profile Search",
+        "summary": "search",
         "operationId": "paymentProfileSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13925,7 +13925,7 @@
     },
     "/paymentProfile/get": {
       "post": {
-        "summary": "Payment Profile Get Bulk",
+        "summary": "getBulk",
         "operationId": "paymentProfileGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -13970,7 +13970,7 @@
     },
     "/paymentProfile/[id]": {
       "post": {
-        "summary": "Payment Profile Get ID",
+        "summary": "getSingle",
         "operationId": "paymentProfileGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14003,7 +14003,7 @@
     },
     "/paymentProfile/create": {
       "post": {
-        "summary": "Payment Profile Create",
+        "summary": "create",
         "operationId": "paymentProfileCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14185,7 +14185,7 @@
     },
     "/paymentProfile/update": {
       "post": {
-        "summary": "Payment Profile Update",
+        "summary": "update",
         "operationId": "paymentProfileUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14332,7 +14332,7 @@
     },
     "/paymentProfile/delete": {
       "post": {
-        "summary": "Payment Profile Delete",
+        "summary": "delete",
         "operationId": "paymentProfileDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14374,7 +14374,7 @@
     },
     "/office/search": {
       "post": {
-        "summary": "Office Search",
+        "summary": "search",
         "operationId": "officeSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14426,7 +14426,7 @@
     },
     "/office/get": {
       "post": {
-        "summary": "Office Get Bulk",
+        "summary": "getBulk",
         "operationId": "officeGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14471,7 +14471,7 @@
     },
     "/office/[id]": {
       "post": {
-        "summary": "Office Get ID",
+        "summary": "getSingle",
         "operationId": "officeGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14504,7 +14504,7 @@
     },
     "/door/search": {
       "post": {
-        "summary": "Door Search",
+        "summary": "search",
         "operationId": "doorSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14604,7 +14604,7 @@
     },
     "/door/get": {
       "post": {
-        "summary": "Door Get Bulk",
+        "summary": "getBulk",
         "operationId": "doorGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14649,7 +14649,7 @@
     },
     "/door/[id]": {
       "post": {
-        "summary": "Door Get ID",
+        "summary": "getSingle",
         "operationId": "doorGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14682,7 +14682,7 @@
     },
     "/knock/search": {
       "post": {
-        "summary": "Knock Search",
+        "summary": "search",
         "operationId": "knockSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14746,7 +14746,7 @@
     },
     "/knock/get": {
       "post": {
-        "summary": "Knock Get Bulk",
+        "summary": "getBulk",
         "operationId": "knockGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14791,7 +14791,7 @@
     },
     "/knock/[id]": {
       "post": {
-        "summary": "Knock Get ID",
+        "summary": "getSingle",
         "operationId": "knockGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14824,7 +14824,7 @@
     },
     "/chemical/search": {
       "post": {
-        "summary": "Chemical Search",
+        "summary": "search",
         "operationId": "chemicalSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14888,7 +14888,7 @@
     },
     "/chemical/get": {
       "post": {
-        "summary": "Chemical Get Bulk",
+        "summary": "getBulk",
         "operationId": "chemicalGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14933,7 +14933,7 @@
     },
     "/chemical/[id]": {
       "post": {
-        "summary": "Chemical Get ID",
+        "summary": "getSingle",
         "operationId": "chemicalGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -14966,7 +14966,7 @@
     },
     "/chemicalUse/search": {
       "post": {
-        "summary": "Chemical Use Search",
+        "summary": "search",
         "operationId": "chemicalUseSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15066,7 +15066,7 @@
     },
     "/chemicalUse/get": {
       "post": {
-        "summary": "Chemical Use Get Bulk",
+        "summary": "getBulk",
         "operationId": "chemicalUseGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15111,7 +15111,7 @@
     },
     "/chemicalUse/[id]": {
       "post": {
-        "summary": "Chemical Use Get ID",
+        "summary": "getSingle",
         "operationId": "chemicalUseGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15144,7 +15144,7 @@
     },
     "/group/search": {
       "post": {
-        "summary": "Group Search",
+        "summary": "search",
         "operationId": "groupSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15214,7 +15214,7 @@
     },
     "/group/get": {
       "post": {
-        "summary": "Group Get Bulk",
+        "summary": "getBulk",
         "operationId": "groupGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15259,7 +15259,7 @@
     },
     "/group/[id]": {
       "post": {
-        "summary": "Group Get ID",
+        "summary": "getSingle",
         "operationId": "groupGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15292,7 +15292,7 @@
     },
     "/group/create": {
       "post": {
-        "summary": "Group Create",
+        "summary": "create",
         "operationId": "groupCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15348,7 +15348,7 @@
     },
     "/group/update": {
       "post": {
-        "summary": "Group Update",
+        "summary": "update",
         "operationId": "groupUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15397,7 +15397,7 @@
     },
     "/insect/search": {
       "post": {
-        "summary": "Insect Search",
+        "summary": "search",
         "operationId": "insectSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15461,7 +15461,7 @@
     },
     "/insect/get": {
       "post": {
-        "summary": "Insect Get Bulk",
+        "summary": "getBulk",
         "operationId": "insectGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15506,7 +15506,7 @@
     },
     "/insect/[id]": {
       "post": {
-        "summary": "Insect Get ID",
+        "summary": "getSingle",
         "operationId": "insectGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15539,7 +15539,7 @@
     },
     "/location/search": {
       "post": {
-        "summary": "Location Search",
+        "summary": "search",
         "operationId": "locationSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15603,7 +15603,7 @@
     },
     "/location/get": {
       "post": {
-        "summary": "Location Get Bulk",
+        "summary": "getBulk",
         "operationId": "locationGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15648,7 +15648,7 @@
     },
     "/location/[id]": {
       "post": {
-        "summary": "Location Get ID",
+        "summary": "getSingle",
         "operationId": "locationGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15681,7 +15681,7 @@
     },
     "/applicationMethod/search": {
       "post": {
-        "summary": "Application Method Search",
+        "summary": "search",
         "operationId": "applicationMethodSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15757,7 +15757,7 @@
     },
     "/applicationMethod/get": {
       "post": {
-        "summary": "Application Method Get Bulk",
+        "summary": "getBulk",
         "operationId": "applicationMethodGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15802,7 +15802,7 @@
     },
     "/applicationMethod/[id]": {
       "post": {
-        "summary": "Application Method Get ID",
+        "summary": "getSingle",
         "operationId": "applicationMethodGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15835,7 +15835,7 @@
     },
     "/glAccount/search": {
       "post": {
-        "summary": "Gl Account Search",
+        "summary": "search",
         "operationId": "glAccountSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15899,7 +15899,7 @@
     },
     "/glAccount/get": {
       "post": {
-        "summary": "Gl Account Get Bulk",
+        "summary": "getBulk",
         "operationId": "glAccountGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15944,7 +15944,7 @@
     },
     "/glAccount/[id]": {
       "post": {
-        "summary": "Gl Account Get ID",
+        "summary": "getSingle",
         "operationId": "glAccountGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -15977,7 +15977,7 @@
     },
     "/cancellationReason/search": {
       "post": {
-        "summary": "Cancellation Reason Search",
+        "summary": "search",
         "operationId": "cancellationReasonSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16053,7 +16053,7 @@
     },
     "/cancellationReason/get": {
       "post": {
-        "summary": "Cancellation Reason Get Bulk",
+        "summary": "getBulk",
         "operationId": "cancellationReasonGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16098,7 +16098,7 @@
     },
     "/cancellationReason/[id]": {
       "post": {
-        "summary": "Cancellation Reason Get ID",
+        "summary": "getSingle",
         "operationId": "cancellationReasonGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16131,7 +16131,7 @@
     },
     "/additionalContact/search": {
       "post": {
-        "summary": "Additional Contact Search",
+        "summary": "search",
         "operationId": "additionalContactSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16207,7 +16207,7 @@
     },
     "/additionalContact/get": {
       "post": {
-        "summary": "Additional Contact Get Bulk",
+        "summary": "getBulk",
         "operationId": "additionalContactGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16252,7 +16252,7 @@
     },
     "/additionalContact/[id]": {
       "post": {
-        "summary": "Additional Contact Get ID",
+        "summary": "getSingle",
         "operationId": "additionalContactGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16285,7 +16285,7 @@
     },
     "/additionalContact/create": {
       "post": {
-        "summary": "Additional Contact Create",
+        "summary": "create",
         "operationId": "additionalContactCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16460,7 +16460,7 @@
     },
     "/appointmentCancellationReason/search": {
       "post": {
-        "summary": "Appointment Cancellation Reason Search",
+        "summary": "search",
         "operationId": "appointmentCancellationReasonSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16530,7 +16530,7 @@
     },
     "/appointmentCancellationReason/get": {
       "post": {
-        "summary": "Appointment Cancellation Reason Get Bulk",
+        "summary": "getBulk",
         "operationId": "appointmentCancellationReasonGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16575,7 +16575,7 @@
     },
     "/appointmentCancellationReason/[id]": {
       "post": {
-        "summary": "Appointment Cancellation Reason Get ID",
+        "summary": "getSingle",
         "operationId": "appointmentCancellationReasonGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16608,7 +16608,7 @@
     },
     "/appointmentRescheduleReason/search": {
       "post": {
-        "summary": "Appointment Reschedule Reason Search",
+        "summary": "search",
         "operationId": "appointmentRescheduleReasonSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16678,7 +16678,7 @@
     },
     "/appointmentRescheduleReason/get": {
       "post": {
-        "summary": "Appointment Reschedule Reason Get Bulk",
+        "summary": "getBulk",
         "operationId": "appointmentRescheduleReasonGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16723,7 +16723,7 @@
     },
     "/appointmentRescheduleReason/[id]": {
       "post": {
-        "summary": "Appointment Reschedule Reason Get ID",
+        "summary": "getSingle",
         "operationId": "appointmentRescheduleReasonGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16756,7 +16756,7 @@
     },
     "/customerSource/search": {
       "post": {
-        "summary": "Customer Source Search",
+        "summary": "search",
         "operationId": "customerSourceSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16844,7 +16844,7 @@
     },
     "/customerSource/get": {
       "post": {
-        "summary": "Customer Source Get Bulk",
+        "summary": "getBulk",
         "operationId": "customerSourceGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16889,7 +16889,7 @@
     },
     "/customerSource/[id]": {
       "post": {
-        "summary": "Customer Source Get ID",
+        "summary": "getSingle",
         "operationId": "customerSourceGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -16922,7 +16922,7 @@
     },
     "/appliedPayment/search": {
       "post": {
-        "summary": "Applied Payment Search",
+        "summary": "search",
         "operationId": "appliedPaymentSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17034,7 +17034,7 @@
     },
     "/appliedPayment/get": {
       "post": {
-        "summary": "Applied Payment Get Bulk",
+        "summary": "getBulk",
         "operationId": "appliedPaymentGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17079,7 +17079,7 @@
     },
     "/appliedPayment/[id]": {
       "post": {
-        "summary": "Applied Payment Get ID",
+        "summary": "getSingle",
         "operationId": "appliedPaymentGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17112,7 +17112,7 @@
     },
     "/disbursement/search": {
       "post": {
-        "summary": "Disbursement Search",
+        "summary": "search",
         "operationId": "disbursementSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17176,7 +17176,7 @@
     },
     "/disbursement/get": {
       "post": {
-        "summary": "Disbursement Get Bulk",
+        "summary": "getBulk",
         "operationId": "disbursementGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17221,7 +17221,7 @@
     },
     "/disbursement/[id]": {
       "post": {
-        "summary": "Disbursement Get ID",
+        "summary": "getSingle",
         "operationId": "disbursementGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17254,7 +17254,7 @@
     },
     "/disbursementItem/search": {
       "post": {
-        "summary": "Disbursement Item Search",
+        "summary": "search",
         "operationId": "disbursementItemSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17324,7 +17324,7 @@
     },
     "/disbursementItem/get": {
       "post": {
-        "summary": "Disbursement Item Get Bulk",
+        "summary": "getBulk",
         "operationId": "disbursementItemGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17369,7 +17369,7 @@
     },
     "/disbursementItem/[id]": {
       "post": {
-        "summary": "Disbursement Item Get ID",
+        "summary": "getSingle",
         "operationId": "disbursementItemGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17402,7 +17402,7 @@
     },
     "/chargeback/search": {
       "post": {
-        "summary": "Chargeback Search",
+        "summary": "search",
         "operationId": "chargebackSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17472,7 +17472,7 @@
     },
     "/chargeback/get": {
       "post": {
-        "summary": "Chargeback Get Bulk",
+        "summary": "getBulk",
         "operationId": "chargebackGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17517,7 +17517,7 @@
     },
     "/chargeback/[id]": {
       "post": {
-        "summary": "Chargeback Get ID",
+        "summary": "getSingle",
         "operationId": "chargebackGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17550,7 +17550,7 @@
     },
     "/diagram/search": {
       "post": {
-        "summary": "Diagram Search",
+        "summary": "search",
         "operationId": "diagramSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17626,7 +17626,7 @@
     },
     "/diagram/get": {
       "post": {
-        "summary": "Diagram Get Bulk",
+        "summary": "getBulk",
         "operationId": "diagramGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17671,7 +17671,7 @@
     },
     "/diagram/[id]": {
       "post": {
-        "summary": "Diagram Get ID",
+        "summary": "getSingle",
         "operationId": "diagramGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17704,7 +17704,7 @@
     },
     "/diagram/update": {
       "post": {
-        "summary": "Diagram Update",
+        "summary": "update",
         "operationId": "diagramUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17760,7 +17760,7 @@
     },
     "/ticketItem/search": {
       "post": {
-        "summary": "Ticket Item Search",
+        "summary": "search",
         "operationId": "ticketItemSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17866,7 +17866,7 @@
     },
     "/ticketItem/get": {
       "post": {
-        "summary": "Ticket Item Get Bulk",
+        "summary": "getBulk",
         "operationId": "ticketItemGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17911,7 +17911,7 @@
     },
     "/ticketItem/[id]": {
       "post": {
-        "summary": "Ticket Item Get ID",
+        "summary": "getSingle",
         "operationId": "ticketItemGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -17944,7 +17944,7 @@
     },
     "/servicePlan/search": {
       "post": {
-        "summary": "Service Plan Search",
+        "summary": "search",
         "operationId": "servicePlanSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -18246,7 +18246,7 @@
     },
     "/servicePlan/get": {
       "post": {
-        "summary": "Service Plan Get Bulk",
+        "summary": "getBulk",
         "operationId": "servicePlanGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -18298,7 +18298,7 @@
     },
     "/servicePlan/[id]": {
       "post": {
-        "summary": "Service Plan Get ID",
+        "summary": "getSingle",
         "operationId": "servicePlanGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -18339,7 +18339,7 @@
     },
     "/servicePlan/create": {
       "post": {
-        "summary": "Service Plan Create",
+        "summary": "create",
         "operationId": "servicePlanCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -18713,7 +18713,7 @@
     },
     "/servicePlan/update": {
       "post": {
-        "summary": "Service Plan Update",
+        "summary": "update",
         "operationId": "servicePlanUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19049,7 +19049,7 @@
     },
     "/servicePlan/updateLeadStage": {
       "post": {
-        "summary": "Service Plan Update Lead Stage",
+        "summary": "updateLeadStage",
         "operationId": "servicePlanUpdateLeadStage",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19119,7 +19119,7 @@
     },
     "/servicePlanRound/search": {
       "post": {
-        "summary": "Service Plan Round Search",
+        "summary": "search",
         "operationId": "servicePlanRoundSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19433,7 +19433,7 @@
     },
     "/servicePlanRound/get": {
       "post": {
-        "summary": "Service Plan Round Get Bulk",
+        "summary": "getBulk",
         "operationId": "servicePlanRoundGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19478,7 +19478,7 @@
     },
     "/servicePlanRound/[id]": {
       "post": {
-        "summary": "Service Plan Round Get ID",
+        "summary": "getSingle",
         "operationId": "servicePlanRoundGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19511,7 +19511,7 @@
     },
     "/servicePlanRound/update": {
       "post": {
-        "summary": "Service Plan Round Update",
+        "summary": "update",
         "operationId": "servicePlanRoundUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19609,7 +19609,7 @@
     },
     "/servicePlanRound/optOut": {
       "post": {
-        "summary": "Service Plan Round Opt Out",
+        "summary": "optOut",
         "operationId": "servicePlanRoundOptOut",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19658,7 +19658,7 @@
     },
     "/compassCustomer/search": {
       "post": {
-        "summary": "Compass Customer Search",
+        "summary": "search",
         "operationId": "compassCustomerSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19716,7 +19716,7 @@
     },
     "/compassCustomer/get": {
       "post": {
-        "summary": "Compass Customer Get Bulk",
+        "summary": "getBulk",
         "operationId": "compassCustomerGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19761,7 +19761,7 @@
     },
     "/compassCustomer/[id]": {
       "post": {
-        "summary": "Compass Customer Get ID",
+        "summary": "getSingle",
         "operationId": "compassCustomerGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19794,7 +19794,7 @@
     },
     "/reserviceReason/search": {
       "post": {
-        "summary": "Reservice Reason Search",
+        "summary": "search",
         "operationId": "reserviceReasonSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19864,7 +19864,7 @@
     },
     "/reserviceReason/get": {
       "post": {
-        "summary": "Reservice Reason Get Bulk",
+        "summary": "getBulk",
         "operationId": "reserviceReasonGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19909,7 +19909,7 @@
     },
     "/reserviceReason/[id]": {
       "post": {
-        "summary": "Reservice Reason Get ID",
+        "summary": "getSingle",
         "operationId": "reserviceReasonGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -19942,7 +19942,7 @@
     },
     "/skill/search": {
       "post": {
-        "summary": "Skill Search",
+        "summary": "search",
         "operationId": "skillSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20000,7 +20000,7 @@
     },
     "/skill/get": {
       "post": {
-        "summary": "Skill Get Bulk",
+        "summary": "getBulk",
         "operationId": "skillGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20045,7 +20045,7 @@
     },
     "/skill/[id]": {
       "post": {
-        "summary": "Skill Get ID",
+        "summary": "getSingle",
         "operationId": "skillGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20078,7 +20078,7 @@
     },
     "/skill/create": {
       "post": {
-        "summary": "Skill Create",
+        "summary": "create",
         "operationId": "skillCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20148,7 +20148,7 @@
     },
     "/skill/update": {
       "post": {
-        "summary": "Skill Update",
+        "summary": "update",
         "operationId": "skillUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20225,7 +20225,7 @@
     },
     "/routeTemplate/search": {
       "post": {
-        "summary": "Route Template Search",
+        "summary": "search",
         "operationId": "routeTemplateSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20283,7 +20283,7 @@
     },
     "/routeTemplate/get": {
       "post": {
-        "summary": "Route Template Get Bulk",
+        "summary": "getBulk",
         "operationId": "routeTemplateGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20328,7 +20328,7 @@
     },
     "/routeTemplate/[id]": {
       "post": {
-        "summary": "Route Template Get ID",
+        "summary": "getSingle",
         "operationId": "routeTemplateGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20361,7 +20361,7 @@
     },
     "/contactType/search": {
       "post": {
-        "summary": "Contact Type Search",
+        "summary": "search",
         "operationId": "contactTypeSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20425,7 +20425,7 @@
     },
     "/contactType/get": {
       "post": {
-        "summary": "Contact Type Get Bulk",
+        "summary": "getBulk",
         "operationId": "contactTypeGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20470,7 +20470,7 @@
     },
     "/contactType/[id]": {
       "post": {
-        "summary": "Contact Type Get ID",
+        "summary": "getSingle",
         "operationId": "contactTypeGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20503,7 +20503,7 @@
     },
     "/contactType/create": {
       "post": {
-        "summary": "Contact Type Create",
+        "summary": "create",
         "operationId": "contactTypeCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20571,7 +20571,7 @@
     },
     "/contactType/update": {
       "post": {
-        "summary": "Contact Type Update",
+        "summary": "update",
         "operationId": "contactTypeUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20644,7 +20644,7 @@
     },
     "/collectionStage/search": {
       "post": {
-        "summary": "Collection Stage Search",
+        "summary": "search",
         "operationId": "collectionStageSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20696,7 +20696,7 @@
     },
     "/collectionStage/get": {
       "post": {
-        "summary": "Collection Stage Get Bulk",
+        "summary": "getBulk",
         "operationId": "collectionStageGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20741,7 +20741,7 @@
     },
     "/collectionStage/[id]": {
       "post": {
-        "summary": "Collection Stage Get ID",
+        "summary": "getSingle",
         "operationId": "collectionStageGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20774,7 +20774,7 @@
     },
     "/collectionStage/update": {
       "post": {
-        "summary": "Collection Stage Update",
+        "summary": "update",
         "operationId": "collectionStageUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20837,7 +20837,7 @@
     },
     "/paymentPriority/search": {
       "post": {
-        "summary": "Payment Priority Search",
+        "summary": "search",
         "operationId": "paymentPrioritySearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20901,7 +20901,7 @@
     },
     "/paymentPriority/get": {
       "post": {
-        "summary": "Payment Priority Get Bulk",
+        "summary": "getBulk",
         "operationId": "paymentPriorityGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20946,7 +20946,7 @@
     },
     "/paymentPriority/[id]": {
       "post": {
-        "summary": "Payment Priority Get ID",
+        "summary": "getSingle",
         "operationId": "paymentPriorityGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -20979,7 +20979,7 @@
     },
     "/onMyWayNotification/search": {
       "post": {
-        "summary": "On My Way Notification Search",
+        "summary": "search",
         "operationId": "onMyWayNotificationSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21055,7 +21055,7 @@
     },
     "/onMyWayNotification/get": {
       "post": {
-        "summary": "On My Way Notification Get Bulk",
+        "summary": "getBulk",
         "operationId": "onMyWayNotificationGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21100,7 +21100,7 @@
     },
     "/onMyWayNotification/[id]": {
       "post": {
-        "summary": "On My Way Notification Get ID",
+        "summary": "getSingle",
         "operationId": "onMyWayNotificationGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21133,7 +21133,7 @@
     },
     "/dataLink/search": {
       "post": {
-        "summary": "Data Link Search",
+        "summary": "search",
         "operationId": "dataLinkSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21221,7 +21221,7 @@
     },
     "/dataLink/get": {
       "post": {
-        "summary": "Data Link Get Bulk",
+        "summary": "getBulk",
         "operationId": "dataLinkGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21266,7 +21266,7 @@
     },
     "/dataLink/[id]": {
       "post": {
-        "summary": "Data Link Get ID",
+        "summary": "getSingle",
         "operationId": "dataLinkGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21299,7 +21299,7 @@
     },
     "/dataLink/create": {
       "post": {
-        "summary": "Data Link Create",
+        "summary": "create",
         "operationId": "dataLinkCreate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21369,7 +21369,7 @@
     },
     "/dataLink/update": {
       "post": {
-        "summary": "Data Link Update",
+        "summary": "update",
         "operationId": "dataLinkUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21446,7 +21446,7 @@
     },
     "/dataLink/delete": {
       "post": {
-        "summary": "Data Link Delete",
+        "summary": "delete",
         "operationId": "dataLinkDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21509,7 +21509,7 @@
     },
     "/license/search": {
       "post": {
-        "summary": "License Search",
+        "summary": "search",
         "operationId": "licenseSearch",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21561,7 +21561,7 @@
     },
     "/license/get": {
       "post": {
-        "summary": "License Get Bulk",
+        "summary": "getBulk",
         "operationId": "licenseGetBulk",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21606,7 +21606,7 @@
     },
     "/license/[id]": {
       "post": {
-        "summary": "License Get ID",
+        "summary": "getSingle",
         "operationId": "licenseGetID",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21639,7 +21639,7 @@
     },
     "/license/delete": {
       "post": {
-        "summary": "License Delete",
+        "summary": "delete",
         "operationId": "licenseDelete",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21684,7 +21684,7 @@
     },
     "/license/update": {
       "post": {
-        "summary": "License Update",
+        "summary": "update",
         "operationId": "licenseUpdate",
         "consumes": [
           "application/x-www-form-urlencoded"
@@ -21747,7 +21747,7 @@
     },
     "/license/create": {
       "post": {
-        "summary": "License Create",
+        "summary": "create",
         "operationId": "licenseCreate",
         "consumes": [
           "application/x-www-form-urlencoded"

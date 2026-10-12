@@ -62,7 +62,7 @@ deepMerge:
       For account-specific or support issues, contact **apisupport@fieldroutes.com**.
 
       **Spot an error, a stale field, or a missing endpoint?**
-      [Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues) —
+      [Open an issue](https://github.com/alecbolingbroke/docs/issues) —
       corrections are welcome and get folded into the next sync.
 
       ## Getting started
@@ -383,7 +383,7 @@ deepMerge:
       vendor's docs are wrong. See the caveat below.
 
       **Something looks wrong here.**
-      [Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues) with
+      [Open an issue](https://github.com/alecbolingbroke/docs/issues) with
       the endpoint and what you observed. For account, key, or platform issues, go to
       **apisupport@fieldroutes.com** instead.
 
