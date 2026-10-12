@@ -1,0 +1,8 @@
+Frequently Asked Questions
+
+		Can we increase our API limits?
+		- By default we cap premium API limits to 3000 reads 3000 writes per office at 60/minute
+		- If your API needs surpass these limits, reach out to apisupport@fieldroutes.com for a consultation.
+
+		Something went wrong! Do you have request logs?
+		- Yes! Please reach out to apisupport@fieldroutes.com for a consultation.

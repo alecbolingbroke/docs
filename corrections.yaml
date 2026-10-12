@@ -1,0 +1,390 @@
+# corrections.yaml — fixes + overlay applied on top of the merged spec by sync-spec.js.
+#
+# WHY: FieldRoutes' own docs have errors (boilerplate descriptions, mislabeled
+# fields). The merge is additive-only and never auto-overwrites existing fields, so
+# record every correction/override HERE. Applied to the canonical after the merge.
+#
+# Types:
+#   paramDescriptions: override one parameter's description (by path/method/name)
+#   deepMerge:         a partial spec deep-merged over the result (object-keyed parts)
+
+paramDescriptions:
+  # FR labels /group/search `date` as "Date the group was last updated" — misleading.
+  # A group has NO service date; the service date lives on the `route` entity.
+  - path: /group/search
+    method: post
+    name: date
+    description: >-
+      Date the group was last UPDATED — NOT a service/route date. A group has no
+      service date; use /route/search and filter on the route's `date` to find routes
+      scheduled on a given day.
+  - path: /group/search
+    method: post
+    name: dateUpdated
+    description: Date the group was last updated.
+  # Singular entityID is silently ignored here and returns every assignment in the
+  # system. Verified against the live API.
+  - path: /genericFlagAssignment/search
+    method: post
+    name: entityIDs
+    description: >-
+      IDs of the entities whose flag assignments you want (PLURAL). The singular
+      `entityID` is silently ignored and returns every assignment in the system, so
+      always send `entityIDs`. This endpoint also requires `officeIDs: 0` and must NOT
+      receive a singular `officeID` — sending `officeID` alone returns count 0, and
+      sending both together also returns count 0.
+  # FR's own docs don't mention the default status filter.
+  - path: /appointment/search
+    method: post
+    name: status
+    description: >-
+      Appointment status filter. IMPORTANT: if omitted, the search defaults to
+      `status IN (0,1)` (Pending and Completed) — No Show (2), Re-Scheduled (-2) and
+      Cancelled (-1) are silently excluded. Pass `status` explicitly when reporting on
+      cancellations or no-shows, and include -2 to catch appointments that were
+      no-showed and then rescheduled. Values: 0 Pending · 1 Completed · 2 No Show ·
+      -2 Re-Scheduled · -1 Cancelled.
+
+deepMerge:
+  info:
+    x-corrections-applied: true
+    # Glossary, rendered as the ReDoc overview (markdown). Embedded by the pipeline
+    # every run, so it's self-sustaining.
+    description: |
+      # FieldRoutes API — Community Reference
+
+      A curated, corrected FieldRoutes OpenAPI spec — more complete than the vendor's
+      published docs (it documents ~90 endpoints and many fields FieldRoutes omits),
+      corrected for known documentation errors, and auto-synced from
+      [fieldroutes.dev](https://fieldroutes.dev) every week.
+
+      This is an **unofficial** reference maintained independently of FieldRoutes.
+      For account-specific or support issues, contact **apisupport@fieldroutes.com**.
+
+      **Spot an error, a stale field, or a missing endpoint?**
+      [Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues) —
+      corrections are welcome and get folded into the next sync.
+
+      ## Getting started
+
+      Every call is a POST (or GET) to `https://YOURDOMAIN.pestroutes.com/api/{entity}/{action}`
+      with `authenticationKey` + `authenticationToken` (and usually `officeID`).
+
+      ```
+      POST https://YOURDOMAIN.pestroutes.com/api/customer/search
+      Content-Type: application/json
+
+      { "authenticationKey": "…", "authenticationToken": "…",
+        "lname": "Doe", "includeData": 1 }
+      ```
+
+      You can also pull the vendor's own raw spec at any time:
+      `/api/documentation/swagger?authenticationKey=xxx&authenticationToken=xxx`.
+
+      ## Limits you need to design around
+
+      | Limit | Value | What to do about it |
+      | --- | --- | --- |
+      | `/search` result set | **50,000 IDs** | Exactly 50,000 back means there are more. Page on the primary key with `>` and the last ID of the previous page until a set returns short. |
+      | `/get` entities | **1,000** | Chunk your ID lists. Inputs past the limit may be silently truncated — send `authenticationKey`/`authenticationToken` **last** so a truncated request fails outright instead of half-executing. |
+      | `includeData=1` on search | **1,000 resolved** | Overflow IDs come back in `{entity}IDsNoDataExported`; fetch those separately. |
+      | `bulkEntities` per write | **100** | Split larger batches and stagger them. |
+      | Rate | **3,000 reads + 3,000 writes per office, 60/min** | Default cap. See the FAQ on pacing before you go near it. |
+
+      ## Keys and office scope
+
+      - By default a key is bound to **one office**: reads get an implied `officeIDs`
+        filter and writes an implied `officeID`.
+      - **Global keys** may pass any `officeIDs` filter on search and any `officeID` on
+        writes (`officeIDs: 0` = all offices).
+      - **Key grouping:** each key has its own read/write limits by default. Keys can be
+        grouped on request so their limits and usage aggregate into a shared pool.
+
+      ## Core entities
+      - **Office** — a branch/market. Almost everything is scoped by `officeID`.
+      - **Customer** — the account holder / serviced property (`customerID`); the hub other records hang off.
+      - **Subscription** — a customer's recurring service plan (recurring revenue): service type, billing frequency, charges/addons.
+      - **Appointment** — a single scheduled visit. Key fields: `date`, `status`, `assignedTech`, `spotID`, `routeID`, `cancellationReasonID`.
+      - **Route** — a tech's day of stops for one `date`; carries `groupID`/`groupTitle` and `assignedTech` (`0` = unassigned). The service date lives here, not on the group.
+      - **Spot** — a bookable time slot on a route (`start`/`end`, `spotCapacity`). `currentAppointment` empty = open; `blockReason` set = blocked. `/spot/reserve` holds one for `duration` minutes (a lock, not a booking).
+      - **Group** — a routing template/team that routes are scheduled onto. Thin entity (`groupID`, `templateID`, `dateUpdated`); has no service date.
+      - **Ticket** — an invoice / charge document.
+      - **Note** — a comment on a customer/appointment; `contactType` sets the kind.
+
+      ## Flags & reasons
+      - **Generic Flag** (`genericFlagAssignment`) — a tag attached to an entity (CUST/APPT). The flag set is defined per-office, so it's the usual place custom attributes end up (property characteristics, reason codes, campaign tags).
+      - **customerFlag** — flags on the customer record (e.g. `pendingCancel`).
+      - **contactType** — the note type, configured per-office under **Admin > Preferences > Notes**. The IDs are *not* portable between offices or tenants — look yours up rather than hardcoding a number you saw in someone else's integration.
+      - **cancellationReason** — coded reasons an appointment was cancelled/no-showed (`cancellationReasonID`).
+
+      ## Try it from this page
+
+      The **Try it** tab runs real calls against your own tenant. Enter your host
+      (`mycompany.fieldroutes.com`), key and token in the bar at the top, then pick an
+      endpoint and hit *Execute*. Requests go **straight from your browser to your
+      FieldRoutes host** — this site has no backend and never sees your credentials.
+
+      Writes are blocked until you explicitly tick **Allow write operations**, because
+      `create`/`update`/`delete` hit live data with no undo.
+
+      ## Status & scheduling
+      - **Appointment status** (integer): `-1` = Cancelled · `-2` = Re-Scheduled · `0` = Pending · `1` = Completed · `2` = No Show.
+        `-2` is easy to miss and matters for reporting: an appointment that was no-showed
+        and then rescheduled **no longer carries status `2`**, so a no-show report filtered
+        on `2` alone undercounts. A reschedule also populates `rescheduleReasonID` — a
+        different lookup from `cancellationReasonID`.
+      - **assignedTech** — employee on a route/appointment; `0` = none.
+      - **apiCanSchedule** — send `1` on route/spot search to return only the slots the API may schedule onto — the gate for programmatic scheduling.
+
+      ## API conventions
+
+      **`/search` → `/get`.** `/{entity}/search` returns IDs; feed them to `/{entity}/get`
+      for the full records. `includeData=1` short-circuits that for the first 1,000.
+
+      **Every search parameter** takes either a plain value or a query object:
+
+      ```json
+      { "dateUpdated": { "operator": ">", "value": "2026-01-01 00:00:00" } }
+      ```
+
+      | Operator type | Accepted values |
+      | --- | --- |
+      | Comparison | `=` `!=` `>` `<` `>=` `<=` |
+      | Set / range | `IN` `BETWEEN` |
+      | Text | `LIKE` `STARTSWITH` `ENDSWITH` `CONTAINS` |
+
+      **Auth** — every call needs `authenticationKey` + `authenticationToken`, and usually
+      `officeID`. **accessControl** profiles (the view/edit/financial flags on an employee)
+      gate what a key is allowed to do.
+
+      ## Silent failures you have to design around
+
+      The API's most expensive failure mode is not an error — it's a `200` that did
+      nothing. Each of these has been observed in production.
+
+      **A read can return `200` + `success: true` + an empty array for a record that
+      exists.** There is no `429`, no `errorMessage`, and nothing to distinguish it from a
+      genuine not-found. Failures arrive in bursts, which suggests a server-side window
+      rather than per-record state — the same call for the same ID succeeds minutes later.
+
+      > Treat an empty read as **retryable, not as "deleted"**. Retry with exponential
+      > backoff and jitter, bounded by a budget that stays under your own function's
+      > timeout. Code that does `if (!rows.length) throw new Error('not found')` will
+      > silently drop real records.
+
+      **A write can return `200` with `success: false` in the body.** Check `success` on
+      every mutating call; the HTTP status alone will not tell you the write landed.
+
+      **A write can also report success while ignoring part of your payload.** Look for
+      **`ignoredParams`** in the response — a parameter the endpoint does not accept is
+      dropped there rather than rejected. Notably, `/appointment/update` accepts
+      `cancelledBy` but ignores `cancellationReasonID`; the latter is cleared by the
+      platform when an appointment leaves No Show status and cannot be written back
+      through any update endpoint. If you need that reason to survive a status change,
+      persist it yourself before the transition, or read it from a flag instead.
+
+      **Read your writes back when it matters.** For flag assignments in particular, a
+      `200` is not proof the assignment is visible. Make the read-back advisory — alert on
+      a mismatch rather than aborting, or a false negative will abort work that actually
+      succeeded.
+
+      ### Singular vs plural parameter names are load-bearing
+
+      Several endpoints accept a plural filter and **silently ignore the singular form**,
+      which fails in the worst possible direction — not an error, not an empty set, but a
+      wrong result set that looks plausible:
+
+      | Endpoint | Correct | What the singular does |
+      | --- | --- | --- |
+      | `/genericFlagAssignment/search` | `entityIDs` | `entityID` is ignored — returns **every assignment in the system** |
+      | `/appointment/search` | `customerIDs` | `customerID` lands in `ignoredParams` — returns **every appointment** (capped at 50,000) |
+      | `/appointment/search` | `officeIDs` | singular `officeID` returns `count: 0` |
+
+      **`/genericFlagAssignment/*` search and get need `officeIDs: 0` and must not receive
+      a singular `officeID` at all.** Sending `officeID` alone returns `count: 0`, and
+      sending **both** `officeID` and `officeIDs: 0` also returns `count: 0`. If you have a
+      shared request helper that injects `officeID` on every call, it needs an escape hatch
+      for these endpoints.
+
+      **`/appointment/search` defaults to `status IN (0,1)`.** No Show, Re-Scheduled and Cancelled
+      are excluded unless you pass `status` explicitly, so any report built on an unfiltered
+      appointment search undercounts silently.
+
+      ### Credentials come back in every response
+
+      Responses echo the `authenticationKey` and `authenticationToken` you sent inside a
+      `params` object, and most HTTP clients attach the outbound request body to their
+      error objects too. **So `console.error(err)` or logging `err.response.data` writes
+      live credentials into your logs**, where they persist for the retention window.
+
+      > Log the status and `errorMessage`, never the whole body — and if you find you have
+      > been logging it, rotating the key is the remediation, not just fixing the log line.
+
+      ### Trigger-rule webhooks
+
+      If you drive integrations from FieldRoutes' trigger rules rather than by polling:
+
+      - **They post `multipart/form-data`, not JSON.** Serverless platforms commonly leave
+        multipart bodies unparsed, so a handler written for JSON sees an unparsed buffer and
+        reports fields "missing" when every field was present.
+      - **A failed delivery is not retried.** There is no redelivery and no dead-letter
+        queue, so if your handler drops the request the event is gone. Return `200` and
+        handle failures internally, or accept that non-2xx means the event is lost.
+      - **They fire on a status *transition*.** Applying a flag or setting a field without
+        moving the status will not fire a rule that watches that transition — which is why
+        a record can look correctly tagged in the UI while no notification ever went out.
+
+      ## Building tools against this spec
+
+      The published spec carries extra metadata to make code generation and agent tooling
+      straightforward — it's the intended backbone for an MCP server or SDK:
+
+      - **`tags`** — every operation is tagged with its entity (`customer`, `spot`, …), and
+        `x-tagGroups` sorts those 62 entities into six sections. Natural tool namespaces.
+      - **`x-fr-write: true`** — set on every mutating operation. Use it to gate writes
+        behind confirmation, or to expose a read-only tool surface by default.
+      - **Machine-readable artifacts** — `fieldroutes-swagger-docs.json` (canonical) and
+        `fieldroutes-swagger-docs.with-summaries.json` (adds human-readable operation
+        titles). Both are regenerated by the same weekly pipeline as this page.
+
+      Note that `produces` is corrected to `application/json` here. FieldRoutes declares
+      `text/html`, but the API is content-negotiated and answers a request for text/html
+      with a **406** — a client that honours the vendor's declared type gets rejected.
+
+      ## Common workflows
+
+      Examples below use the vendor's `apiModule` JS helper (from
+      [fieldroutes.dev/examples](https://fieldroutes.dev/examples), which has the full
+      runnable set); the same shapes apply to any HTTP client.
+
+      **Incremental sync — pull everything changed since your last run**
+
+      ```js
+      apiModule.search('customer', {
+        dateUpdated: { operator: '>', value: '2022-03-01 00:00:00' },
+        includeData: 1
+      }, /* fullResult */ 1).then(console.log);
+      ```
+
+      **Global lookup by phone (global key)**
+
+      ```js
+      apiModule.search('customer', { officeIDs: 0, phone: '5558675309', includeData: 1 });
+      ```
+
+      **Create a customer with a subscription**
+
+      ```js
+      apiModule.call('customer', 'create', { fname: 'John', lname: 'Doe' })
+        .then(r => apiModule.call('subscription', 'create', {
+          customerID: r.result,
+          serviceID: 1,
+          active: 1,
+          initialCharge: 200,      // charged on the initial service
+          serviceCharge: 100,      // charged per recurring service
+          agreementLength: 12,     // months
+          preferredDays: 4,        // 0=SUN … 6=SAT
+          preferredStart: '09:00:00',
+          preferredEnd: '17:00:00',
+          preferredTech: 1         // employeeID; 0 = no preference
+        }));
+      ```
+
+      **Turn a subscription into a lead** — create it, then set the lead stage via
+      `subscription/updateLeadStage` (`stageID` + `status`).
+
+      **Addons** — both `initialAddons` and recurring `addons` take
+      `{ description, quantity, amount, productID, serviceID, taxable, creditTo, unitID }`.
+      A negative `amount` is a discount.
+
+      **Payment profiles** — `paymentProfile/create` with `paymentMethod` `1` = credit
+      card, `2` = ACH, plus `gateway` (`payrix`, `authorize`, `nmi`, `brain`, `element`).
+      Card profiles take `merchantID`/`merchantToken` from the gateway's tokenizer; ACH
+      takes `accountNumber`/`routingNumber`. **Confirm the active gateway with the office
+      admin first** — profiles created against an inactive gateway may be unusable.
+      Refunds are `payment/createRefund` with `paymentID` + `amount`.
+
+      **Bulk write (≤100 per request)**
+
+      ```js
+      apiModule.call('customer', 'create', {
+        officeID: 1,
+        bulkEntities: [{ fname: 'A', lname: 'One' }, { fname: 'B', lname: 'Two' }]
+      });
+      ```
+
+      For large update sets driven off a search or CSV, stagger the writes
+      (`apiModule.staggeredWrite(entity, action, rows, concurrency)`) rather than firing
+      them all at once.
+
+      **Documents & contracts** — `document/createEncoded` (`encodedFile`) and
+      `contract/create` (`base64EncodedFile`) take base64 with the data-URL prefix
+      stripped.
+
+      **dataLink** — attach arbitrary JSON to a record (`dataLink` on create/update, or
+      the `dataLink` entity). Pass `dataLink: 1` on search/get to have it resolved back.
+
+      **Find the best spot for an address**
+
+      ```js
+      apiModule.search('route', {
+        date: { operator: 'between', value: ['2020-09-24', '2020-09-30'] },
+        latitude: lat, longitude: lng, apiCanSchedule: 1, includeData: 1
+      })
+      // sort routes by averageDistance, take the closest few, then:
+      .then(routeIDs => apiModule.search('spot', {
+        routeIDs, date: dateFilter, latitude: lat, longitude: lng,
+        apiCanSchedule: 1, ignoreInitialDriveTime: 1, includeData: 1
+      }));
+      ```
+
+      Spots come back ordered by distance from the tech's previous stop, so the first
+      `open` spot is usually the right one. If the appointment `duration` exceeds
+      `spotCapacity`, walk `nextSpotID` until the full duration is covered.
+      `ignoreInitialDriveTime: 1` stops the tech's start/end location from being weighed
+      once a route already has an appointment on it.
+
+      **Hiding keys from the browser** — don't ship `authenticationKey`/`Token` to a
+      front end. Proxy through your own middleware and inject the credentials
+      server-side.
+
+      ## FAQ
+
+      **Can we increase our API limits?**
+      Premium API limits are capped by default at **3,000 reads and 3,000 writes per
+      office, at 60/minute**. If your needs exceed that, email
+      **apisupport@fieldroutes.com** for a consultation.
+
+      **Something went wrong — are there request logs?**
+      Yes. Reach out to **apisupport@fieldroutes.com** and they can pull them.
+
+      **How should I pace my requests?**
+      Throttle deliberately and treat the per-office limits as a shared budget, not a
+      target. A few practical rules that hold up well in production:
+
+      - **Never spike the API.** Bursting through a large ID list at full speed will
+        exhaust an office's read or write budget and degrade every other integration
+        (and the FieldRoutes UI) pointed at that office.
+      - **Cap concurrency**, don't fan out. Staggered writes with a small concurrency
+        (≈4–8 in flight) are the norm; `apiModule.staggeredWrite` does this for you.
+      - **Stay well under 60/minute per office**, and remember limits are *per office*
+        unless your keys have been grouped into a shared pool — in which case every
+        integration on those keys is drawing from the same budget.
+      - **Batch instead of looping.** Use `/search` + `includeData=1`, `/get` with up to
+        1,000 IDs, and `bulkEntities` (≤100) rather than one call per record.
+      - **Spread scheduled jobs out.** Don't have every nightly job start on the hour
+        against the same office; offset them.
+      - **Back off on failure** rather than retrying immediately — retry storms are what
+        turn a blip into an outage.
+
+      **Why does this spec differ from the vendor's?**
+      It's additive: everything FieldRoutes documents is here, plus endpoints and fields
+      that are real and in use but undocumented upstream, plus corrections where the
+      vendor's docs are wrong. See the caveat below.
+
+      **Something looks wrong here.**
+      [Open an issue](https://github.com/alecbolingbroke/fieldroutes-docs/issues) with
+      the endpoint and what you observed. For account, key, or platform issues, go to
+      **apisupport@fieldroutes.com** instead.
+
+      _Doc caveats: the vendor's own docs mislabel some fields (e.g. `group.date` is last-updated, not a service date) and mark some as required that aren't. This spec corrects them._

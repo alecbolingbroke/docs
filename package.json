@@ -1,0 +1,13 @@
+{
+  "name": "fieldroutes-docs-project",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FieldRoutes OpenAPI docs — viewer + upstream sync",
+  "scripts": {
+    "sync": "node sync-spec.js",
+    "summaries": "cd docs && node generate-summaries.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}

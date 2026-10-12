@@ -1,0 +1,2177 @@
+This document contains a JavaScript module 'apiModule' that can be used to invoke calls through a simplified interface.
+The module can be found Here.
+
+These calls can be inspected through the network section of the web development console
+to observe request payloads and response data
+
+API documentation on individual endpoints can be found Here.
+
+		API Workflows
+
+		Search Examples
+		Create/Update customers
+		Create/Update subscriptions and leads
+		Create/Update a Payment Profile
+		Upload Documents and Contracts
+		Bulk Write
+		Data link
+		Advanced apiModule usage
+
+		Proxy front-end requests to middleware
+		Load Keys into apiModule
+		Other
+
+		Complex Examples
+		Older Examples
+
+	Search Examples
+
+Search for customerIDs unfiltered (50k limit)
+
+Execute
+
+apiModule.search('customer',{}).then(console.log);
+
+Search for customerIDs unfiltered (requery to fetch full result)
+
+Execute
+
+var fullResult=true;
+apiModule.search('customer',{},fullResult).then(console.log);
+
+Search for customers (50k limit) and includeData (1k entity limit)
+
+Execute
+
+apiModule.search('customer',{
+	'includeData':1
+}).then(console.log);
+
+Search for customers and includeData, resolve all IDs ands entities staggered
+
+Execute
+
+var fullResult=true;
+apiModule.search('customer',{
+	'includeData':1
+}, fullResult).then(console.log);
+
+Search for customers updated since last check-in
+
+Execute
+
+apiModule.search('customer',{
+	'dateUpdated':{
+		'operator':'>',
+		'value':'2022-03-01 00:00:00'
+	},
+	'includeData':1
+},1).then(console.log);
+
+Search for customer globally (all offices) by phone number
+
+Execute
+
+apiModule.search('customer',{
+	'officeIDs':0,
+	'phone':'5558675309',
+	'includeData':1
+}).then(console.log);
+
+Search for customers with a balance older than 7 days
+
+Execute
+
+apiModule.search('customer',{
+	'balanceAge':{
+		'operator':'>',
+		'value':'7'
+	},
+	'includeData':1
+}).then(console.log);
+
+Download all customers with a balance older than 7 days
+
+Execute
+
+apiModule.search('customer',{
+	'balanceAge':{
+		'operator':'>',
+		'value':'7'
+	},
+	'includeData':1
+},1).then(apiModule.download);
+
+Download all invoices with a balance as JSON
+
+Execute
+
+apiModule.search('ticket',{
+	'balance':{
+		'operator':'>',
+		'value':'0'
+	},
+	'includeData':1
+},1).then(apiModule.downloadJSON);
+
+Download all customers globally
+
+Execute
+
+apiModule.search('customer',{
+	'officeIDs':0,
+	'includeData':1
+},1).then(apiModule.download);
+
+	Create/Update customers
+
+Create a customer (minimum)
+
+Execute
+
+apiModule.call('customer','create',{
+	'fname':'John',
+	'lname':'Doe'
+}).then(console.log);
+
+Create a customer (more parameters)
+
+Execute
+
+apiModule.call('customer','create',{
+	'fname':'John',
+	'lname':'Doe'
+}).then(console.log);
+
+Create and Update a customer
+
+Execute
+
+apiModule.call('customer','create',{
+	'fname':'John',
+	'lname':'Doe'
+}).then(console.log);
+
+Update all 50 customers with a balance older than 180 days and >$9000 to inactive
+
+Execute
+
+apiModule.search('customer',{
+	'balanceAge':{
+		'operator':'>',
+		'value':'180'
+	},
+	'balance':{
+		'operator':'>',
+		'value':'9000'
+	},
+	'status':1,
+	'includeData':1
+},1).then(function(customers){
+	customers=customers.slice(0,50); //lets just do 50 since it's a demo...
+
+	let updates=[];
+	for(var i=0,l=customers.length;i<l;++i){
+		updates.push({
+			'customerID':customers[i]['customerID'],
+			'status':0
+		});
+	}
+
+	return apiModule.staggeredWrite('customer','update',updates,8);
+}).then(console.log);
+
+	Create/Update subscriptions and leads
+
+Create a customer with a subscription (MVP)
+
+Execute
+
+apiModule.call('customer','create',{
+	'fname':'John',
+	'lname':'Doe'
+}).then(function(response){
+	var customerID=response.result;
+	return apiModule.call('subscription','create',{
+		'customerID':customerID,
+		'serviceID':1
+	});
+});
+
+Create a customer with a subscription (common parameters)
+
+Execute
+
+apiModule.call('customer','create',{
+	'fname':'John',
+	'lname':'Doe',
+}).then(function(response){
+	var customerID=response.result;
+	return apiModule.call('subscription','create',{
+		'customerID':customerID,
+		'serviceID':1,
+		'active':1,
+		'soldBy':1,//employeeID
+		'initalCharge':200, //amount charged on initial service
+		'serviceCharge':100,//amount charged per service
+		'agreementLength':12,//months
+		'preferredDays':4,//Preferred appointment day (0-SUN, 1-MON, 2-TUE, 3-WED, 4-THU, 5-FRI, 6-SAT)
+		'preferredStart':'09:00:00',//Preferred appointment time window start range in local time
+		'preferredEnd':'17:00:00',
+		'preferredTech':1,//employeeID -  0 for no preference
+	});
+});
+
+Create a Lead
+
+Execute
+
+apiModule.call('customer','create',{
+	'fname':'John',
+	'lname':'Doe'
+}).then(function(response){
+	var customerID=response.result;
+	return apiModule.call('subscription','create',){
+		'customerID':customerID,
+		'serviceID':1
+	});
+}).then(function(response){
+	var subscriptionID=response.result;
+	return apiModule.call('subscription','updateLeadStage',){
+		'subscriptionID':subscriptionID,
+		//'stageID':
+		'status':0
+	});
+};
+
+Create a subscription with a addons
+
+Execute
+
+apiModule.call('customer','create',{
+'fname':'Test',
+'lname':'Customer',
+}).then(function(response){
+	let customerID = response.result;
+
+	return apiModule.call('subscription','create',{
+		'customerID': customerID,
+		'serviceID': 1,
+		'initialCharge': '2000',
+		'initialAddons':[
+			{
+				"description":  'Initial Discount',
+				"quantity":     1,
+				"amount":       -1000.01,
+				"productID":    0,
+				"serviceID":    0,
+				"taxable":      1,
+				"creditTo":     1,
+				"unitID":       null
+			}
+		],
+		'serviceCharge': '222.22',
+		'addons':[
+			{
+				"description":  'Recurring Handling Fee',
+				"quantity":     1,
+				"amount":       1.08,
+				"productID":    1,
+				"serviceID":    0,
+				"taxable":      1,
+				"creditTo":     1,
+				"unitID":       null
+			}
+		],
+	});
+}).then(function(r){
+	return apiModule.get('subscription',[r.result]);
+}).then(console.log);
+
+	Create/Update a Payment Profile
+
+	Confirm payment gateway with office administrator - profiles created for inactive gateways may be inaccessable and unusable!
+
+Create an ACH payment profile
+
+Execute
+
+//paymentProfile/create ACH
+apiModule.call('customer','create',{
+	'fname':'billy',
+	'lname':'testman'
+}).then(function(customer){
+	var customerID=customer.result;
+	return apiModule.call('paymentProfile', 'create',{
+		"customerID": customerID,
+		"autopay":1,
+		"billingAddress1": "5001 Quorum Dr",
+		"billingCity": "Addison",
+		"billingState": "TX",
+		"billingZip": "75001",
+		"billingCountryID": "US",
+		"paymentMethod": "2", //1:cc, 2:ach
+		"accountNumber": "0000001",
+		"routingNumber": "111900659",
+		"gateway": "payrix",//ACH gateway E.G. authorize, nmi, brain, element, payrix
+	});
+}).then(console.log);
+
+Create a credit card payment profile (Payrix)
+
+Execute
+
+var customerID;
+//paymentProfile/create CC
+apiModule.call('customer','create',{
+	'fname':'billy',
+	'lname':'testman'
+}).then(function(customer){
+	customerID=customer.result;
+	return apiModule.call('paymentProfile', 'create',{
+		"customerID": customerID, //286582
+		"autopay":1,
+		"billingAddress1": "5003 Quorum Dr",
+		"billingCity": "Dallas",
+		"billingState": "TX",
+		"billingZip": "75252",
+		"billingCountryID": "US",
+		"paymentMethod": "1", //1:cc, 2:ach
+		"merchantID": "4ec88309415fa4be1fa3889c2130bf5c",
+		"merchantToken": "t1_tok_6287c8d8426e9aa739ecf7e",
+		"gateway": "payrix",//ACH or CC gateway E.G. authorize, nmi, brain, element, payrix
+	});
+}).then(function(){
+	return apiModule.call('payment','create',{
+		'customerID':customerID,
+		'paymentMethod':3,
+		'amount':'100',
+		'doCharge':1
+	});
+}).then(function(){
+	return apiModule.search('paymentProfile',{'customerIDs':[customerID],'includeData':1});
+}).then(console.log);
+
+Create a credit card payment profile (BrainTree)
+
+Execute
+
+//paymentProfile/create CC
+apiModule.call('customer','create',{
+	'fname':'billy',
+	'lname':'testman'
+}).then(function(customer){
+	var customerID=customer.result;
+	return apiModule.call('paymentProfile', 'create',{
+		"customerID": customerID,
+		"autopay":1,
+		"billingAddress1": "5001 Quorum Dr",
+		"billingCity": "Addison",
+		"billingState": "TX",
+		"billingZip": "75001",
+		"billingCountryID": "US",
+		"paymentMethod": "1", //1:cc, 2:ach
+		"merchantID": "880744804", //paymentProfileTokenID
+		"merchantToken": "mky6jbm",//paymentProfileToken
+		"gateway": "brain",//ACH or CC gateway E.G. authorize, nmi, brain, element, payrix
+	});
+}).then(console.log);
+
+Create a credit card payment profile (NMI)
+
+Execute
+
+//paymentProfile/create CC
+apiModule.call('customer','create',{
+	'fname':'billy',
+	'lname':'testman'
+}).then(function(customer){
+	var customerID=customer.result;
+	return apiModule.call('paymentProfile', 'create',{
+		"customerID": customerID,
+		"autopay":1,
+		"billingAddress1": "15000 Quorum Dr",
+		"billingCity": "Addison",
+		"billingState": "TX",
+		"billingZip": "75001",
+		"billingCountryID": "US",
+		"paymentMethod": "1", //1:cc, 2:ach
+		"merchantID": "zy98F9F8-9g2EV8-FZMQ7m-u5m7t8EH65ny",
+		"gateway": "nmi",//ACH or CC gateway E.G. authorize, nmi, brain, element, payrix
+	});
+}).then(console.log);
+
+Refund a payment
+
+Execute
+
+apiModule.call('payment','createRefund',{
+	'paymentID':10028,
+	'amount':'100',
+});
+
+Create a credit card payment profile, test payment, refund payment (Payrix)
+
+Execute
+
+var customerID;
+//paymentProfile/create CC
+apiModule.call('customer','create',{
+	'fname':'billy',
+	'lname':'testman',
+	'officeID':13
+}).then(function(customer){
+	customerID=customer.result;
+	return apiModule.call('paymentProfile', 'create',{
+		"customerID": customerID, //286582
+		"autopay":1,
+		//"billingAddress1": "5003 Quorum Dr",
+		//"billingCity": "Dallas",
+		//"billingState": "TX",
+		//"billingZip": "75252",
+		//"billingCountryID": "US",
+		"paymentMethod": "1", //1:cc, 2:ach
+		"merchantID": "bc81c20b040b18afc9bc5a0f2880ecab",
+		"merchantToken": "t1_tok_628bac7b1becf0e4094e9d6",
+		"gateway": "payrix",//ACH or CC gateway E.G. authorize, nmi, brain, element, payrix
+		'officeID':13
+	});
+}).then(function(){
+	return apiModule.call('payment','create',{
+		'customerID':customerID,
+		'paymentMethod':3,
+		'amount':'1',
+		'doCharge':1,
+		'officeID':13
+	});
+}).then(function(r){
+	return apiModule.call('payment','createRefund',{
+		'paymentID':r.result,
+		'amount':'1',
+		'officeID':13
+	});
+}).then(function(){
+	return apiModule.search('paymentProfile',{'includeData':1,'customerIDs':[customerID],'officeIDs':0});
+})
+.then(console.log);
+
+	Upload documents and contracts with base64
+
+Upload a document
+
+Execute
+
+//get the file into a string
+var file = $('.upload_document_example_1')[0].files[0];
+var reader = new FileReader();
+var file_base_64;
+reader.readAsDataURL(file);
+reader.onload = function(){
+	apiModule.call('document','createEncoded',{
+		'customerID':58346,
+		'description':'Contract from API',
+		//'filename':'contract_upload.jpg',
+		'filename':file.name,
+		'encodedFile': reader.result.split('base64,')[1] //trim off the metadata
+	}).then(console.log);
+};
+reader.onerror = function(error){
+	console.error('Error: ', error);
+};
+
+Upload a contract
+
+Execute
+
+//get the file into a string
+var file = $('.upload_document_example_2')[0].files[0];
+var reader = new FileReader();
+var file_base_64;
+reader.readAsDataURL(file);
+reader.onload = function(){
+	apiModule.call('contract','create',{
+		'subscriptionID':30353,
+		'emailCustomer':0,
+		'dateSigned':'2022-04-04',
+		'base64EncodedFile': reader.result.split('base64,')[1] //trim off the metadata
+	}).then(console.log);
+};
+reader.onerror = function(error){
+	console.error('Error: ', error);
+};
+
+	Write up to 100 entities per request
+
+Launch tests for bulk write
+
+Execute
+
+//create 10 customers with initial notes and appointments.
+//Most endpoints limit bulk entities to 100
+var customers=[];
+for(var i=0;i<10;++i){
+	customers.push({'fname':i+'ing','lname':i+'son'});
+}
+
+apiModule.call('customer','create',{
+	'officeID':1,
+	'bulkEntities':customers
+}).then(function(results){
+
+	//make a bunch of initial notes
+	var notes=[];
+	var createdCustomers=results.result.success;
+	for(i=0,l=createdCustomers.length;i<l;++i){
+		notes.push({
+			'customerID':createdCustomers[i],
+			'date':'2024-01-01 10:00:00',
+			'contactType':8,
+			'notes':'this a red note'
+		});
+	}
+	return apiModule.call('note','create',{
+		'officeID':1,
+		'bulkEntities': notes
+	}).then(function(){
+
+		//find a bunch of open spots
+		return apiModule.search('spot',{
+			'date':{'operator':'BETWEEN','value':['2024-01-01','2024-02-20']},
+			'includeData':1,
+			'open':1
+		}).then(function(spots){
+			spots = spots.slice(0,10);
+
+			//assign a bunch of appointments
+			var appointments=[];
+			for(i=0,l=createdCustomers.length;i<l;++i){
+				let spot = spots.pop();
+				appointments.push({
+					'customerID':createdCustomers[i],
+					'spotID':spot['spotID'],
+					'type':1,
+					'duration':'20',
+					'routeID':spot['routeID'],
+					'rejectOccupiedSpots':1,
+					'bypassSchedulePermission':1
+				});
+			}
+			return apiModule.call('appointment','create',{
+				'officeID':1,
+				'bulkEntities': appointments
+			})
+		})
+
+	});
+}).then(console.log);
+
+	Store arbirtrary data attached to our models
+
+Launch tests for datalink
+
+Execute
+
+apiModule.call('customer','create',{
+	'fname':'link',
+	'lname':'green',
+	'dataLink':{
+		'dataLinkAlias':'x'+Date.now(),
+		'dataLink':{'best':'Data'}
+	}
+}).then(function(r){
+	return apiModule.search('customer',{
+		'includeData':1,
+		'dataLink':1,
+		'customerIDs':[r.result]
+	});
+}).then(function(c){
+	console.log(c[0]);
+	console.log(c[0]['dataLink']);
+	console.log(c[0]['dataLink']['dataLink']);
+}).then(function(){
+	//add data after and update tests
+	apiModule.call('customer','create',{
+		'fname':'link',
+		'lname':'red',
+	}).then(function(r){
+		window.customerID=r.result;
+		return apiModule.call('dataLink','create',{
+			'dataLinkAlias':'m'+Date.now(),
+			'dataLinkType':'customer',
+			'dataLinkKey':window.customerID,
+			'dataLink':{'oops':'data'}
+		});
+
+	}).then(function(r){
+		return apiModule.search('customer',{
+			'includeData':1,
+			'dataLink':1,
+			'customerIDs':[window.customerID]
+		});
+	}).then(function(c){
+		console.log(c[0]);
+		console.log(c[0]['dataLink']);
+		console.log(c[0]['dataLink']['dataLink']);
+	}).then(function(){
+		return apiModule.call('dataLink','update',{
+			'dataLinkType':'customer',
+			'dataLinkKey':window.customerID,
+			'dataLink':{'updated':'data'}
+		});
+	}).then(function(){
+		return apiModule.search('customer',{
+			'includeData':1,
+			'dataLink':1,
+			'customerIDs':[window.customerID]
+		});
+	}).then(function(c){
+		console.log(c[0]);
+		console.log(c[0]['dataLink']);
+		console.log(c[0]['dataLink']['dataLink']);
+	}).then(function(){
+		return apiModule.call('customer','update',{
+			'customerID':window.customerID,
+			'dataLink':{'integrated':'update'}
+		});
+	}).then(function(){
+		return apiModule.search('customer',{
+			'includeData':1,
+			'dataLink':1,
+			'customerIDs':[window.customerID]
+		});
+	}).then(function(c){
+		console.log(c[0]);
+		console.log(c[0]['dataLink']);
+		console.log(c[0]['dataLink']['dataLink']);
+	}).then(function(){
+		/*return apiModule.call('customer','create',{
+			'bulkEntities':[
+				{
+					'fname':'link',
+					'lname':'blue',
+					'dataLink':{'bulky':'create1'}
+				},
+				{
+					'fname':'link',
+					'lname':'shadow',
+					'dataLink':{'bulky':'create2'}
+				},
+			]
+		});*/
+		return apiModule.call('note','create',{
+			'bulkEntities':[
+				{
+					'customerID':window.customerID,
+					'date':'2024-07-02',
+					'contactType':0,
+					'notes':'duly',
+					'dataLink':{'bulky':'create1'}
+				},
+				{
+					'customerID':window.customerID,
+					'date':'2024-07-02',
+					'contactType':0,
+					'notes':'noted',
+					'dataLink':{'bulky':'create2'}
+				},
+			]
+		});
+
+	}).then(function(r){
+		return apiModule.search('note',{
+			'includeData':1,
+			'dataLink':1,
+			'noteIDs':r.result.success
+		});
+	}).then(function(c){
+		console.log(c[0]);
+		console.log(c[0]['dataLink']);
+		console.log(c[0]['dataLink']['dataLink']);
+		console.log(c[1]);
+		console.log(c[1]['dataLink']);
+		console.log(c[1]['dataLink']['dataLink']);
+	}).then(function(r){
+		var lateCustomer;
+		//create with no initial dataLink
+		return apiModule.call('customer','create',{
+			'fname':'bill',
+			'lname':'pc'
+		}).then(function(r){
+			lateCustomer=r.result;
+			return apiModule.search('customer',{
+				'customerIDs':[lateCustomer],
+				'includeData':1,
+				'dataLink':1,
+			});
+		}).then(function(c){
+			console.log(c[0]);
+			console.log(c[0]['dataLink']?'dataLink present':'dataLink missing (expected)');
+
+			return apiModule.call('customer','update',{
+				'customerID':lateCustomer,
+				'dataLink':{'late':'data'}
+			});
+		}).then(function(r){
+			return apiModule.call('customer',lateCustomer,{'dataLink':1});
+		}).then(function(c){
+			console.log(c.customer);
+			console.log(c.customer.dataLink);
+			console.log(c.customer.dataLink.dataLink);
+		});
+	});
+});
+
+	Proxy usage example (key obfuscation)
+
+Load a key for proxy usage
+
+Execute
+
+apiModule.loadKeyset('proxy',{
+	"base_url":"/api/proxy/send/",
+	"keys":["does not matter"],
+	"tokens":["does not matter"],
+},1);
+
+PHP basic proxy code
+
+<?php
+//This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License
+// http://creativecommons.org/licenses/by-sa/4.0/
+
+/* .htaccess file
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?/$1 [L]
+*/
+$instance = new Proxy();
+Class Proxy{
+	private static $url   = &#039;https://stagingdemo.pestroutes.com/api/&#039;;
+	private static $key   = &#039;xxx&#039;;
+	private static $token = &#039;xxx&#039;;
+
+	// URL handler - Passes parts to function arguments - domain.com/function/arg1/arg2?query=string
+	function __construct(){
+		//Get arguments from the path
+		$request_parts=explode(&#039;?&#039;,$_SERVER[&#039;REQUEST_URI&#039;]);
+		$request_uri=$request_parts[0];
+		//We don&#039;t do anything with the query string as we use POST, but you could decode
+		$query_string=@isset($request_parts[1])?$request_parts[1]:&#039;&#039;;
+		$args=explode(&#039;/&#039;, str_replace(&#039;index.php/&#039;,&#039;&#039;,$request_uri) );
+
+		if($args[0]==&#039;&#039;)
+		  array_shift($args); // we don&#039;t need this bit if it&#039;s empty
+		$function = preg_replace("/[^A-Za-z0-9 _\-]/", &#039;&#039;, array_shift($args) );//Sanitize the function name
+		if($function==&#039;&#039;){ //no uri, retrieve an app shell (html file)
+			$this->index();
+		}else if( method_exists( $this, $function) ){ //If it&#039;s a public method below, invoke it
+			$reflection = new ReflectionMethod($this, $function);
+			if( $reflection->isPublic() )
+				call_user_func_array( array($this, $function), $args );
+		}
+	}
+	public static function send( $request, $endpoint, $action){
+		try{
+			$request[&#039;authenticationKey&#039;]  =self::$key;
+			$request[&#039;authenticationToken&#039;]=self::$token;
+
+			$url = self::$url.$endpoint.&#039;/&#039;.$action;
+
+			$ch = curl_init($url);
+			curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($request));
+			curl_setopt($ch, CURLOPT_HTTPHEADER, array(&#039;Content-Type:application/json&#039;));
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			$result = curl_exec($ch);
+			$result=json_decode($result, true);
+			$result[&#039;params&#039;][&#039;authenticationKey&#039;]=&#039;xxx&#039;;
+			$result[&#039;params&#039;][&#039;authenticationToken&#039;]=&#039;xxx&#039;;
+
+			die(json_encode($result));
+		} catch(Exception $e){
+			die(json_encode([
+				&#039;success&#039;=>false,
+				&#039;errorMessage&#039;=>&#039;Proxy: &#039;.$e->getMessage()
+			]));
+		}
+	}
+	public function index(){
+		echo &#039;Hello World&#039;;//include &#039;homepage.php&#039;;
+	}
+}
+
+	Load keys into the JavaScript apiModule
+
+Load a key into the apiModule
+
+Execute
+
+apiModule.loadKeyset('demo',{
+	"base_url":"https://stagingdemo.pestroutes.com/api/",
+	"keys":["88492884d8154febd1057372867c2e34b371d8fb"],
+	"tokens":["6915e71f53708f17dba090febd2df4f9d79364d7"],
+});
+apiModule.setKeyset('demo)
+
+Load a key into the apiModule and activate
+
+Execute
+
+apiModule.loadKeyset('demo',{
+	"base_url":"https://stagingdemo.pestroutes.com/api/",
+	"keys":["88492884d8154febd1057372867c2e34b371d8fb"],
+	"tokens":["6915e71f53708f17dba090febd2df4f9d79364d7"],
+},true);
+
+Save a keyset locally
+
+Execute
+
+apiModule.saveKeysetsLocally();
+
+	Complex Examples
+
+Download all customers with a balance older than 7 days
+
+Execute
+
+apiModule.search('customer',{
+	'balanceAge':{
+		'operator':'>',
+		'value':'7'
+	},
+	'includeData':1
+},1).then(apiModule.download);
+
+	Older Examples
+
+	Get up to the minute documentation
+
+	Get the raw swagger documenation export from our servers.
+
+	Example
+
+	Execute
+
+apiModule.call('documentation','swagger',{});
+//OR
+//https://YOURDOMAIN.pestroutes.com/api/documentation/swagger?authenticationKey=xxx&authenticationToken=xxx
+
+Load a keyset
+
+	Example
+
+	Execute
+
+apiModule.loadKeyset('demo',{
+	"base_url":"https://stagingdemo.pestroutes.com",
+	"keys":["xxx"],
+	"tokens":["xxx"],
+},1);
+//apiModule.setKeyset('demo');
+
+Send a bunch of subscription updates staggered (from csv)
+
+subscriptionID,officeID,duration
+10006,1,30
+10007,1,30
+
+	workflow
+
+	Execute
+
+let csvForm = document.getElementById("csvForm");
+let csvFile = document.getElementById("csvFile");
+
+csvForm.addEventListener("submit", function(e){
+	e.preventDefault();
+	let input = csvFile.files[0];
+	let reader = new FileReader();
+
+	//Set the load action for the csv file
+	reader.onload = function(e){
+		let rows = apiModule.csvToArray(e.target.result);
+		//rows=rows.slice(0,1000);
+		//rows.unshift({"subscriptionID":18,"officeID":1,"duration":30});
+		return apiModule.staggeredWrite('subscription','update',rows,8)
+		.then(function(r){
+			console.log('bulk update results:');
+			console.log(r);
+			if(confirm('download result log?')){
+				apiModule.downloadJSON(r);
+			}
+		});
+	};
+	//load the csv file
+	reader.readAsText(input);
+});
+
+let csvSubmit = document.getElementById("csvSubmit");
+csvSubmit.style.display = "block"
+
+Send a bunch of updates staggered
+
+	Example
+
+	Execute
+
+return; //delete me to run this crazy example
+
+apiModule.search('subscription',{
+	'includeData':1,
+	'serviceID':1
+})
+.then(function(subscriptions){
+	let updates=[];
+	for(let i=0,l=subscriptions.length; i<l;++i){
+		updates.push({
+			"subscriptionID":subscriptions[i]['subscriptionID'],
+			"duration":30,
+			"officeID":subscriptions[i]['officeID']
+		});
+	}
+	return apiModule.staggeredWrite('subscription','update',updates,4);
+}).then(console.log);
+
+Download all service types
+
+	Download all service types with a global key.
+
+	Example
+
+	Execute
+
+apiModule.search('serviceType',{
+    "officeIDs":0, //[-1, (officeIDs>0)]
+    "includeData":1
+},1).then(apiModule.download);
+
+Download all customerIDs
+
+	Download all service types with a global key.
+
+	Example
+
+	Execute
+
+apiModule.search('customer',{
+    "officeIDs":{"operator":">","value":"0"},
+},1).then(apiModule.download);
+
+Download all customers fully resolved
+
+	Download all service types with a global key.
+
+	Example
+
+	Execute
+
+return; //safety
+apiModule.search('customer',{
+    "officeIDs":{"operator":">","value":"0"},
+    "includeData":1
+},1).then(apiModule.download);
+
+test spot search
+
+	Example
+
+	Execute
+
+apiModule.search('spot', {
+	"date": {
+		"operator":'IN',
+		"value":[ "2020-09-25"],
+	},
+	//"routeIDs": [78, 79, 80, 81, 82],
+	"apiCanSchedule": 1,
+	"ignoreInitialDriveTime":1,
+	"latitude":  33.130489,
+	"longitude": -96.651377,
+	"includeData":1
+}).then(function(r){
+	//console.table(r, ['distanceToClosest','distanceToPrevious','distanceToNext','open','start','end']);
+});
+
+Stress test spots pragmatic
+
+	Example
+
+	Execute
+
+apiModule.search('spot', {
+	"date": {
+		"operator":"BETWEEN",
+		"value":[
+			"2021-03-01",
+			"2021-03-31"
+		]
+	},
+	"routeIDs":166,
+	"apiCanSchedule": 1,
+	"latitude":  33.130489,
+	"longitude": -96.661377,
+	"includeData":1,
+	//"open":1
+}).then(function(spots){
+	for(var i=0,l=spots.length;i<l;++i){
+		apiModule.get('spot',[spots[i]['spotID']]);
+	}
+});
+
+Create a bunch of appointments for random customers
+
+	Example
+
+	Execute
+
+var testRouteID=107;
+
+apiModule.search('subscription',{
+	'includeData':1,
+	'status':1
+}).then(function(subscriptions){
+	apiModule.shuffle(subscriptions);
+	var testSubscriptions=subscriptions.slice(0,10);
+
+	for(var i=0,l=testSubscriptions.length;i<l;++i){
+		let start = Math.floor(Math.random() * 6) + 9; //9am-3pm
+		let end = Math.floor(Math.random() * 4) + 2 + start; //+2-6 hours later
+
+		//start=9;
+		//end=17;
+		apiModule.call('appointment','create',{
+			"customerID":     testSubscriptions[i]['customerID'],
+			"subscriptionID": testSubscriptions[i]['subscriptionID'],
+			"type":           testSubscriptions[i]['serviceID'],
+			"duration":       Math.random()>.5?59:29,
+			"notes":          'Api Created Appointment',
+			"spotID":         0,
+
+			'start':          (start
+
+create a ticket with items
+
+	Example
+
+	Execute
+
+apiModule.call('ticket', 'create',{
+	"customerID":		130,
+	"serviceID":		1,
+
+	"date":				"2020-09-16",
+	"billToAccountID":	0,
+	"serviceCharge":	69.96,
+	"additionalNotes":	'API TESTING',
+	"addons":[
+		{
+			"description":	'discount',
+			"quantity":		1,
+			"amount":		-1.99,
+			"productID":	0,
+			"serviceID":	0,
+			"taxable":		1,
+			"creditTo":		1,
+			"unitID":		null
+		},
+		{
+			"description":	'Addon item',
+			"quantity":		1,
+			"amount":		2.99,
+			"productID":	1,
+			"serviceID":	0,
+			"taxable":		1,
+			"creditTo":		1,
+			"unitID":		null
+		}
+	]
+});
+
+Efficiently find the best route and spot for a location
+
+	Example
+
+	Execute
+
+var customerLatitude  ='33.13'+Math.ceil(Math.random()*100);
+var customerLongitude='-96.66'+Math.ceil(Math.random()*100); //'-83.86'
+var dateFilter={
+	'operator':'between',
+	'value':['2020-09-24','2020-09-30']
+};
+
+apiModule.search('route',{
+	'date':dateFilter,
+	'latitude':customerLatitude,
+	'longitude':customerLongitude,
+	//'maxDistance':500,
+	'apiCanSchedule':1,
+	'includeData':1
+}).then(function(routes){
+	//Sort by averageDistance ASC
+	routes.sort(function(a, b){
+		//empty routes to the bottom
+		if(a.averageDistance===b.averageDistance){
+			return 0;
+		}else if(a.averageDistance===null){
+			return 1;
+		}else if(b.averageDistance===null){
+			return -1;
+		}
+		return (parseFloat(a.averageDistance) > parseFloat(b.averageDistance)) ? 1 : -1;
+	});
+
+	console.log(routes.map( r=>r.averageDistance) );
+
+	//Take only the first 10 routeIDs
+	var routeIDs = routes.splice(0,10).map( r => r.routeID );
+
+	return apiModule.search('spot',{
+		'routeIDs':routeIDs,
+		'date':dateFilter,
+		'latitude':customerLatitude,
+		'longitude':customerLongitude,
+		'apiCanSchedule':1,
+		'ignoreInitialDriveTime':1, // with this filter once a route has any appointment on it the start and end location of the technician will no longer be considered
+		'includeData':1
+	}).then(function(spots){
+		for(let i=0,l=spots.length;i<l;++i){
+
+			//**if you need to accomodate appointments longer than the capacity of a spot more logic is necessary!
+			if(spots[i].open&spots[i].apiCanSchedule){
+				return spots[i];
+			}
+		}
+
+		//fallback: search the remaining routes
+		return apiModule.search('spot',{
+			'routeIDs':routes.map( r => r.routeID ),
+			'date':dateFilter,
+			'latitude':customerLatitude,
+			'longitude':customerLongitude,
+			'apiCanSchedule':1,
+			'ignoreInitialDriveTime':1,
+			'includeData':1
+		}).then(function(spots){
+			for(let i=0,l=spots.length;i<l;++i){
+				if(spots[i].open&spots[i].apiCanSchedule){
+					return spots[i];
+				}
+			}
+			return 'could not find spot!';
+		});
+	});
+}).then(console.log);
+
+create a payment profile for a random customer with element
+
+	Example
+
+	Execute
+
+apiModule.search('customer',{
+	'includeData':1
+}).then(function(customers){
+	apiModule.call('customer', 'createPaymentProfile', {
+		'customerID': customers[0]['customerID'],
+		'billingAddress1': customers[0]['address'],
+		'billingCity': customers[0]['city'],
+		'billingState': customers[0]['state'],
+		'billingZip': customers[0]['zip'],
+		'billingCountryID':'US',
+
+		"CreditCardToken":'F33F5BB8-142A-4AC8-BD39-1CD523C7A059',
+		//"CreditCardTokenID":"144531766", //NMI customer_vault_id can send repeatedly
+	});
+});
+
+Get all customers that prefer paper
+
+	Example
+
+	Execute
+
+apiModule.search('customerFlag',{
+	'customerFlags':'prefersPaper',
+	'includeData':1
+});
+
+Scheduling an appointment to an ideal spot
+
+	This workflow will create a customer (with a subscription and a payment profile) if it doesn't already exist, schedule an appointment if it's needed, then charge the customer through PestRoutes.
+
+	Example
+
+	Execute
+
+var data={};
+apiModule.search('customer',{
+	'customerIDs':20303,
+	'includeData':1
+}).then(function( customers ){
+	data.customer=customers[0];
+	data.subscriptionIDs=data.customer.subscriptionIDs.split(',');
+	let latestSubscriptionID=data.subscriptionIDs[data.subscriptionIDs.length-1];
+
+	//retrieve the subscription
+	return apiModule.get('subscription',[latestSubscriptionID]);
+}).then(function( subscriptions ){
+	data.subscription=subscriptions[0];
+
+	//Check for pending appointments
+	return apiModule.search('appointment',{
+		'subscriptionIDs': data.subscription['subscriptionID'],
+		'status':0
+	});
+}).then(function( appointments ){
+
+	//Bail out if there is already a pending appointment
+	if(false&&appointments.length>0){
+		return Promise.reject('Pending appointment exists!');
+	}
+
+	//Get the spots for next Monday or Tuesday
+	return apiModule.search('spot', {
+		"date": {
+			"operator":"BETWEEN",
+			"value":[
+				"2020-08-03",
+				"2020-08-04"
+			]
+		},
+		"apiCanSchedule": 1,
+		"latitude":  data.customer.lat, //33.130489,
+		"longitude": data.customer.lng, //-96.661377,
+		"includeData":1
+	});
+}).then(function( spots ){
+
+	//console.table(spots);
+	//The spots come back ordered by the distance from the tech's previous location (last customer, employee endpoint, or office location), the first open spot should be fine
+	let chosenSpot=false;
+	for( var i=0, l=spots.length; i<l; ++i){
+		if(spots[i]['open']==1){
+			chosenSpot=spots[i];
+			break;
+		}
+	}
+
+	//Note that if the duration of the appointment is greater than 'spotCapacity' nextSpotID should be checked for openness until full duration is accomodated
+
+	return chosenSpot;
+}).then(function( spot ){
+
+	//create the appointment
+	return apiModule.call('appointment','create',{
+		"customerID":     data.customer['customerID'],
+		"type":           data.subscription['serviceID'],
+		"duration":       29,
+		"notes":          'Api Created Appointment',
+		"spotID":         spot['spotID'],
+		"subscriptionID": data.subscription['subscriptionID'],
+		"employeeID":     1
+	});
+}).then(function( createResult ){
+	let appointmentID = createResult['success']==true? createResult['result'] : false;
+
+	if(appointmentID===false){
+		return Promise.reject('Failed to create appointment!');
+	}
+
+	return Promise.resolve('Appointment created!');
+
+}).then(console.log, console.error);
+
+Scheduling and rescheduling an appointment for a known customer.
+
+	This workflow will find an ideal spot for a customer, then reschedule that customer.
+
+	Example
+
+	Execute
+
+var data={};
+apiModule.search('customer',{
+	'customerIDs':20303,
+	'includeData':1
+}).then(function( customers ){
+	data.customer=customers[0];
+	data.subscriptionIDs=data.customer.subscriptionIDs.split(',');
+	let latestSubscriptionID=data.subscriptionIDs[data.subscriptionIDs.length-1];
+
+	//retrieve the subscription
+	return apiModule.get('subscription',[latestSubscriptionID]);
+}).then(function( subscriptions ){
+	data.subscription=subscriptions[0];
+
+}).then(function( appointments ){
+
+	//Get the spots for next Monday or Tuesday
+	return apiModule.search('spot', {
+		"date": {
+			"operator":"BETWEEN",
+			"value":[
+				"2020-07-20",
+				"2020-07-21"
+			]
+		},
+		"apiCanSchedule": 1,
+		"latitude":  data.customer.lat, //33.130489,
+		"longitude": data.customer.lng, //-96.661377,
+		"includeData":1
+	});
+}).then(function( spots ){
+	//console.table(spots);
+	//The spots come back ordered by the distance from the tech's previous location (last customer, employee endpoint, or office location), the first open spot should be fine
+	let chosenSpot=false;
+	for( var i=0, l=spots.length; i<l; ++i){
+		if(spots[i]['open']==1){
+			chosenSpot=spots[i];
+			break;
+		}
+	}
+
+	//Note that if the duration of the appointment is greater than 'spotCapacity' nextSpotID should be checked for openness until full duration is accomodated
+
+	return chosenSpot;
+}).then(function( spot ){
+
+	//create the appointment
+	return apiModule.call('appointment','create',{
+		"customerID":     data.customer['customerID'],
+		"type":           data.subscription['serviceID'],
+		"duration":       14,
+		"notes":          'Api Created Appointment',
+		"spotID":         spot['spotID'],
+		"subscriptionID": data.subscription['subscriptionID']
+	});
+}).then(function( createResult ){
+	data.appointmentID = createResult['success']==true? createResult['result'] : false;
+
+	//Get the new spot for WED/THUR
+	return apiModule.search('spot', {
+		"date": {
+			"operator":"BETWEEN",
+			"value":[
+				"2020-07-22",
+				"2020-07-23"
+			]
+		},
+		"apiCanSchedule": 1,
+		"latitude":  data.customer.lat, //33.130489,
+		"longitude": data.customer.lng, //-96.661377,
+		"includeData":1
+	});
+}).then(function( spots ){
+	//console.table(spots);
+	//The spots come back ordered by the distance from the tech's previous location (last customer, employee endpoint, or office location), the first open spot should be fine
+	let chosenSpot=false;
+	for( var i=0, l=spots.length; i<l; ++i){
+		if(spots[i]['open']==1){
+			chosenSpot=spots[i];
+			break;
+		}
+	}
+
+	//Note that if the duration of the appointment is greater than 'spotCapacity' nextSpotID should be checked for openness until full duration is accomodated
+
+	return chosenSpot;
+}).then(function( spot ){
+	if(data.appointmentID===false){
+		return Promise.reject('Failed to update appointment!');
+	}
+
+	return apiModule.call('appointment','update',{
+		'appointmentID':  data.appointmentID,
+		"customerID":     data.customer['customerID'],
+		"type":           data.subscription['serviceID'],
+		"duration":       14,
+		"notes":          'Api UPDATED Appointment',
+		"spotID":         spot['spotID'],
+		"subscriptionID": data.subscription['subscriptionID']
+	});
+
+})
+.then(console.log, console.error);
+
+Updating a customer via import/main safely
+
+	First, read the current state of the customer from the customer/get endpoint then maps those values to the import/main field names, modifies reminder preferences to off, then sends to import/main for update.
+
+	Example
+
+	Execute
+
+apiModule.selectCustomersForUpdate([20301])
+.then(function(customers){
+
+	//Turn off reminders for the customer
+	customers[0]['PhoneReminders']=0;
+	customers[0]['SmsReminders']=0;
+	customers[0]['EmailReminders']=0;
+
+	//Write the customer
+	return apiModule.call('import','main',{
+		"dataMain": customers
+	});
+})
+.then(console.log);
+
+Sync all products
+
+	Example
+
+	Execute
+
+var products = [
+	{
+		"productID": "1",
+		"officeID": "1",
+		"description": "WE CHANGED THIS DESCRIPTION",
+		"amount": "-50.00",
+		"taxable": "1",
+		"code": "COUPON ",
+		"category": "COUPONS",
+		"visible": "1",
+		"salesVisible": "1",
+		"recurring": "0"
+	},
+	{
+		"productID": "2",
+		"officeID": "1",
+		"description": "Cancellation Fee",
+		"amount": "100.00",
+		"taxable": "0",
+		"code": "EFT",
+		"category": "ADMIN",
+		"visible": "1",
+		"salesVisible": "1",
+		"recurring": "0"
+	},
+	{
+		"productID": "6",
+		"officeID": "1",
+		"description": "MOTH FOG",
+		"amount": "25.00",
+		"taxable": "1",
+		"code": "MOTH",
+		"category": "MOTH",
+		"visible": "1",
+		"salesVisible": "1",
+		"recurring": "1"
+	},
+	{
+		"productID": "8",
+		"officeID": "1",
+		"description": "Candy Party",
+		"amount": "5000.00",
+		"taxable": "1",
+		"code": "CANDY",
+		"category": "PARTY",
+		"visible": "1",
+		"salesVisible": "1",
+		"recurring": "0"
+	},
+	{
+		"productID": false,
+		"officeID": "-1",
+		"description": "This is a new one",
+		"amount": "100.00",
+		"taxable": "1",
+		"code": "MASTER",
+		"category": "RO",
+		"visible": "1",
+		"salesVisible": "1",
+		"recurring": "0"
+	},
+	{
+		"productID": false,
+		"officeID": "-1",
+		"description": "This is another new one",
+		"amount": "101.00",
+		"taxable": "1",
+		"code": "DOCTOR",
+		"category": "DR",
+		"visible": "1",
+		"salesVisible": "1",
+		"recurring": "0"
+	}
+];
+
+//get all PR product IDs
+apiModule.search('product',{})
+.then(function(productIDs){
+	//Resolve productIDs to entities in groups of 1000
+	return apiModule.staggeredRequest('product', productIDs);
+})
+.then(function(prProducts){
+
+	//Index remote products on code field
+	var indexedProducts = {};
+	for(var i=0,l=prProducts.length; i<l; ++i){
+		if(prProducts[i]['code']==''){ //Warn on entries with no code
+			console.error('product missing code', prProducts[i]);
+		} else if(typeof indexedProducts[ prProducts[i]['code'] ] !== 'undefined'){ //Warn on duplicates
+			console.error('Duplicate product code: ' + prProducts[i]['code'], prProducts[i]);
+		} else {
+			indexedProducts[ prProducts[i]['code'] ]=prProducts[i];
+		}
+	}
+
+	var creates = [];
+	var updates = [];
+	//compare local list against remote list
+	for(var i=0,l=products.length; i<l; ++i){
+		if( typeof indexedProducts[ products[i]['code'] ] === 'undefined'
+			&& indexedProducts[ products[i]['code'] ] != ''
+		){
+			creates.push(products[i]);
+			continue;
+		}
+
+		let remote = indexedProducts[products[i]['code']];
+		if(
+			   products[i]['description']!=  remote['description']
+			|| products[i]['amount']!=       remote['amount']
+			|| products[i]['taxable']!=      remote['taxable']
+			|| products[i]['category']!=     remote['category']
+			|| products[i]['visible']!=      remote['visible']
+			|| products[i]['salesVisible']!= remote['salesVisible']
+			|| products[i]['recurring']!=    remote['recurring']
+		){
+			updates.push({
+				'productID': remote['productID'],
+				'description': products[i]['description'],
+				'amount': products[i]['amount'],
+				'taxable': products[i]['taxable'],
+				'category': products[i]['category'],
+				'visible': products[i]['visible'],
+				'salesVisible': products[i]['salesVisible'],
+				'recurring': products[i]['recurring']
+			});
+		}
+	}
+
+	function createProducts(newProducts){
+		var currentProduct = newProducts.shift();
+		apiModule.call('product','create',{
+			"officeID":      currentProduct['officeID'],
+			"description":   currentProduct['description'],
+			"amount":        currentProduct['amount'],
+			"taxable":       currentProduct['taxable'],
+			"code":          currentProduct['code'],
+			"category":      currentProduct['category'],
+			"visible":       currentProduct['visible'],
+			"salesVisible":  currentProduct['salesVisible'],
+			"recurring":     currentProduct['recurring']
+		}).then(function(response){
+			//Save created productID if you want
+			console.log(response.result);
+
+			//Recurse while not empty
+			if(newProducts.length>0){
+				createProducts(newProducts);
+			}
+
+		});
+	}
+
+	//Do the create calls
+	if(creates.length>0){
+		createProducts(creates);
+	}
+
+	function updateProducts(changedProducts){
+		var currentProduct = changedProducts.shift();
+		apiModule.call('product','update',currentProduct)
+		.then(function(response){
+			//Recurse while not empty
+			if(changedProducts.length>0){
+				updateProducts(changedProducts);
+			}
+
+		});
+	}
+	//Do the update calls
+	if(updates.length>0){
+		updateProducts(updates);
+	}
+});
+
+	Ping for reachability every 5 minutes
+
+	Example
+
+	Execute
+
+function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+async function applesauce(){ await sleep(5*60*1000); return apiModule.search('customer',{}).then(function(r){ alert('success!');console.log(r); }, applesauce); } applesauce();
+
+Big Workflow
+
+	This workflow will create a customer (with a subscription and a payment profile) if it doesn't already exist, schedule an appointment if it's needed, then charge the customer through PestRoutes.
+
+	Example
+
+	Execute
+
+//Build our test data
+var data = {};
+var sampleCustomer={
+	//Customer Infomation
+	"CustomerID":      "CleanTest0020",     //Your primary key, iterate to repeat test
+	"Branch":          "Demo Pest Control",
+	"CustomerName":    "Liberty Burger",
+	"CustomerAddress": "824 W Stacy Rd",
+	"CustomerCity":    "Allen",
+	"CustomerState":   "TX",
+	"CustomerZipCode": "75013",
+	"CustomerPhone1":  "1118675309",
+	"CustomerPhone2":  "5558675309",
+	"CustomerEmail":    "",
+	"CustomerStatus":   "Act",
+
+	//NMI token
+	//"CreditCardToken":"n43k4enf-mcJEHj-4BG9WJ-EggA4286Qf27", //These are one-time use! We convert it to a customer_vault_id and store
+	//"CreditCardTokenID":"144531766", //NMI customer_vault_id can send repeatedly
+
+	//Element
+	//"CreditCardToken":'F33F5BB8-142A-4AC8-BD39-1CD523C7A059',
+
+	//Braintree
+	//"CreditCardTokenID":'7qf8yk',
+	//"CreditCardToken":'506160933',
+
+	//Subscription information - Will always CREATE a subscription if set
+	"Frequency": 90, 				//These three fields
+	"ServiceType": 'API Quarterly', // are the minimum to
+	"Price": '200',					// create a subscription
+
+	//"Lead": 'No',					//Set Yes to create subscription as a LEAD
+	//"LastService": '4/26/18',		// If this is set it will override Lead to No
+	//"InitialService": '1/26/18',	// If this is set it will override Lead to No
+};
+
+//First, let's see if the customer exists based on our external primary key
+apiModule.search('customer',{
+	'customerLink':sampleCustomer['CustomerID'],
+	'includeData':1
+}).then(function( customers ){
+
+	//Return true if the customer exists
+	if( customers.length>0 ){
+		data.customer=customers[0];
+		data.subscriptionIDs=data.customer.subscriptionIDs.split(',');
+		return Promise.resolve(true);
+	}
+
+	//create the customer if it doesn't exist
+	return apiModule.call('import','main',{
+		"dataMain":[sampleCustomer]
+	});
+}).then(function( importResult ){
+
+	//We can skip this step; the customer was found in step 1
+	if( importResult===true ){
+		return Promise.resolve(true);
+	}
+
+	//Detect import error
+	if(
+		importResult['success']==0
+		|| importResult['customersImported'].length==0
+	){
+		alert('failed to import customer');
+	}
+
+	let customerID = importResult['customersImported'][0]['PestRoutesCustomerID'];
+
+	//retrieve the customer (includes nested subscriptionIDs)
+	return apiModule.get('customer',[customerID]);
+}).then(function( customers ){
+
+	//store the new data if we did the create operation
+	if( customers!==true ){
+		data.customer=customers[0];
+		data.subscriptionIDs=data.customer.subscriptionIDs.split(',');
+	}
+
+	let latestSubscriptionID=data.subscriptionIDs[data.subscriptionIDs.length-1];
+
+	//retrieve the subscription
+	return apiModule.get('subscription',[latestSubscriptionID]);
+}).then(function( subscriptions ){
+
+	data.subscription=subscriptions[0];
+
+	//check if the subscription is due for service
+	let currentDate = (new Date()).toISOString().substring(0,10);
+	let serviceDue = data.subscription['nextService']0){
+		return Promise.reject('Pending appointment exists!');
+	}
+
+	//Get the spots for next Monday or Tuesday
+	return apiModule.search('spot', {
+		"date": {
+			"operator":"BETWEEN",
+			"value":[
+				"2019-10-08",
+				"2019-10-09"
+			]
+		},
+		"apiCanSchedule": 1,
+		"latitude":  33.130489,
+		"longitude":-96.661377,
+		"includeData":1
+	});
+}).then(function( spots ){
+
+	//console.table(spots);
+	//The spots come back ordered by the distance from the tech's previous location (last customer, employee endpoint, or office location) , the first open spot should be fine
+	let chosenSpot=false;
+	for( var i=0, l=spots.length; i<l; ++i){
+		if(spots[i]['open']==1){
+			chosenSpot=spots[i];
+			break;
+		}
+	}
+
+	//Note that if the duration of the appointment is greater than 'spotCapacity' nextSpotID should be checked for openness until full duration is accomodated
+
+	return chosenSpot;
+}).then(function( spot ){
+
+	//create the appointment
+	return apiModule.call('appointment','create',{
+		"customerID":     data.customer['customerID'],
+		"type":           data.subscription['serviceID'],
+		"duration":       14,
+		"notes":          'Api Created Appointment',
+		"spotID":         spot['spotID'],
+		"subscriptionID": data.subscription['subscriptionID']
+	});
+}).then(function( createResult ){
+	let appointmentID = createResult['success']==true? createResult['result'] : false;
+
+	if(appointmentID===false){
+		return Promise.reject('Failed to create appointment!');
+	}
+
+	//create a payment for the customer, charge the card on file
+	return apiModule.call('payment','create',{
+		"customerID":data.customer['customerID'],
+		"amount": 100,
+		"notes":'API generated payment',
+		"paymentMethod":3, // 0-Coupon, 1-Cash, 2-Check, 3-Credit Card, 4 ACH
+
+		//Optionally charge the card/ACH on file through PestRoutes
+		'doCharge': 1,
+
+		//Optionally limit the payment to the subscription
+		'subscriptionID':data.subscription['subscriptionID']
+	});
+}).then(function( paymentResult ){
+
+	if(paymentResult['success']==true){
+		return Promise.resolve('Payment Created');
+	}else{
+		return Promise.reject(paymentResult['errorMessage']);
+	}
+
+}).then(console.log, console.error);
+
+Generic examples follow
+
+Create a customer
+
+	To create a customer use the import/main endpoint. Subsequent requests with the same 'CustomerID' property will perform a set operation, updating the matched entity to the data sent. Here we'll use 'PestRoutesTesting1234'. This is a fantasy, so we'll be servicing Disney World in this demo.
+
+	Full list of import/main parameters here: https://pestroutes.api-docs.io/3.1/import/importmainobject
+
+	Example
+
+	Execute
+
+apiModule.call('import','main',{
+	"dataMain":[
+		{
+			"CustomerID": "PestRoutesTesting1234",
+			"Branch": "Demo Pest Control",
+			"CustomerName": "PestRoutes Testing01",
+			"CustomerAddress": "Walt Disney World Resort, Orlando, FL 32830",
+			"CustomerCity": "Orlando",
+			"CustomerState": "FL",
+			"CustomerZipCode": "32830",
+			"CustomerPhone1": "4428675309",
+			"CustomerPhone2": "4438675309",
+			"CustomerEmail": "",
+			"CustomerStatus": "Act"
+
+			//"Frequency": 90, 				//These three fields
+			//"ServiceType": 'Quarterly',	// are the minimum to
+			//"Price": '111',				// create a subscription
+
+			//"Lead": 'No',					//Set Yes to revert subscription to a LEAD
+			//"LastService": '4/26/18',		// If this is set it will override Lead to No
+			//"InitialService": '1/26/18',	// If this is set it will override Lead to No
+		}
+	]
+});
+
+	JQuery
+
+$.post("https://demo.pestroutes.com/api/import/main",
+{
+	"authenticationKey": "xxx",
+	"authenticationToken": "xxx",
+	"dataMain":[
+		{
+			"CustomerID": "PestRoutesTesting1234",
+			"Branch": "Demo Pest Control",
+			"CustomerName": "PestRoutes Testing01",
+			"CustomerAddress": "Walt Disney World Resort, Orlando, FL 32830",
+			"CustomerCity": "Orlando",
+			"CustomerState": "FL",
+			"CustomerZipCode": "32830",
+			"CustomerPhone1": "4428675309",
+			"CustomerPhone2": "4438675309",
+			"CustomerEmail": "",
+			"CustomerStatus": "Act"
+		}
+	]
+}, function(response){
+	console.log(response);
+},"JSON");
+
+	CURL
+
+curl 'https://demo.pestroutes.com/api/import/main' -H 'Accept: application/json, text/javascript, */*; q=0.01'-H 'Sec-Fetch-Mode: cors' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' --data 'dataMain%5B0%5D%5BCustomerID%5D=PestRoutesTesting1234&dataMain%5B0%5D%5BBranch%5D=Demo+Pest+Control&dataMain%5B0%5D%5BCustomerName%5D=PestRoutes+Testing01&dataMain%5B0%5D%5BCustomerAddress%5D=Walt+Disney+World+Resort%2C+Orlando%2C+FL+32830&dataMain%5B0%5D%5BCustomerCity%5D=Orlando&dataMain%5B0%5D%5BCustomerState%5D=FL&dataMain%5B0%5D%5BCustomerZipCode%5D=32830&dataMain%5B0%5D%5BCustomerPhone1%5D=4428675309&dataMain%5B0%5D%5BCustomerPhone2%5D=4438675309&dataMain%5B0%5D%5BCustomerEmail%5D=&dataMain%5B0%5D%5BCustomerStatus%5D=INA&authenticationKey=xxx&authenticationToken=xxx' --compressed
+
+	Result
+
+{
+	"params": {
+		"endpoint": "import",
+		"action": "main",
+		"dataMain": [],
+		"authenticationKey": "xxx",
+		"authenticationToken": "xxx"
+	},
+	"requestAction": "main",
+	"endpoint": "import",
+	"success": true,
+	"customersImported": [
+		{
+			"CustomerID": "PestRoutesTesting1234",
+			"PestRoutesCustomerID": "21044",
+			"Action": "Created"
+		}
+	],
+	"processingTime": "899 milliseconds",
+	"count": 0
+}
+//Subsequent requests:
+{
+	"params": {
+		"endpoint": "import",
+		"action": "main",
+		"dataMain": [],
+		"authenticationKey": "xxx",
+		"authenticationToken": "xxx"
+	},
+	"requestAction": "main",
+	"endpoint": "import",
+	"success": true,
+	"customersImported": [
+		{
+			"CustomerID": "PestRoutesTesting1234",
+			"PestRoutesCustomerID": "21044",
+			"Action": "Updated"
+		}
+	],
+	"processingTime": "808 milliseconds",
+	"count": 0
+}
+
+Search for customers
+
+	Search for customer by by dateUpdated
+
+	Example
+
+	Execute
+
+apiModule.search('customer',{
+	"dateUpdated":{
+		"operator":">",
+		"value":"2019-09-27 00:00:00"
+	}
+}).then(console.log);
+
+	JQuery
+
+$.post("https://demo.pestroutes.com/api/customer/search",
+{
+	"authenticationKey": "xxx",
+	"authenticationToken": "xxx",
+	"dateUpdated":{
+		"operator":">",
+		"value":"2019-09-27 00:00:00"
+	}
+}, function(response){
+	console.log(response);
+},"JSON");
+
+	CURL
+
+curl 'https://demo.pestroutes.com/api/customer/search' -H 'Accept: application/json, text/javascript, */*; q=0.01' -H 'Sec-Fetch-Mode: cors' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' --data 'dateUpdated%5Boperator%5D=%3E&dateUpdated%5Bvalue%5D=2019-09-27+00%3A00%3A00&authenticationKey=xxx&authenticationToken=xxx' --compressed
+
+	Result
+
+{
+	"params": {
+		"endpoint": "customer",
+		"action": "search",
+		"dateUpdated": {
+			"operator": ">",
+			"value": "2019-09-27 00:00:00"
+		},
+		"authenticationKey": "xxx",
+		"authenticationToken": "xxx"
+	},
+	"requestAction": "search",
+	"endpoint": "customer",
+	"success": true,
+	"idName": "customerIDs",
+	"processingTime": "53 milliseconds",
+	"count": 2,
+	"customerIDs": [
+		12,
+		14
+	],
+	"propertyName": "customerIDs"
+}
+
+Resolve customerIDs
+
+	Get full objects for the given customerIDs
+
+	Example
+
+	Execute
+
+apiModule.get('customer',[12,14]).then(console.log);
+
+	JQuery
+
+$.post("https://demo.pestroutes.com/api/customer/get",
+{
+	"authenticationKey": "xxx",
+	"authenticationToken": "xxx",
+	"customerIDs":[12,14]
+}, function(response){
+	console.log(response);
+},"JSON");
+
+	CURL
+
+curl 'https://demo.pestroutes.com/api/customer/get' -H 'Accept: application/json, text/javascript, */*; q=0.01' -H 'Sec-Fetch-Mode: cors' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' --data 'customerIDs%5B%5D=12&authenticationKey=xxx&authenticationToken=xxx' --compressed
+
+	Result
+
+{
+	"params": {
+		"endpoint": "customer",
+		"action": "get",
+		"customerIDs": [
+			"12",
+			"14"
+		],
+		"authenticationKey": "xxx",
+		"authenticationToken": "xxx"
+	},
+	"requestAction": "get",
+	"endpoint": "customer",
+	"success": true,
+	"processingTime": "31 milliseconds",
+	"count": 2,
+	"customers": [
+		{
+			"customerID": "12",
+			"billToAccountID": "12",
+			"officeID": "1",
+			"fname": "Jane",
+			"lname": "Smith",
+			"companyName": "",
+			"spouse": null,
+			"commercialAccount": "0",
+			"status": "1",
+			"statusText": "Active",
+			"email": "ivanner@pestroutes.com",
+			"phone1": "",
+			"phone2": "1",
+			"address": "22676  Edinburgh Ln",
+			"city": "WASHINGTON TOWNSHIP",
+			"state": "MI",
+			"zip": "48095",
+			"billingCompanyName": "",
+			"billingFName": "Jane",
+			"billingLName": "Smith",
+			"billingCountryID": "US",
+			"billingAddress": "22676  Edinburgh Ln",
+			"billingCity": "McKinney",
+			"billingState": "TX",
+			"billingZip": "75069",
+			"billingPhone": "",
+			"billingEmail": "ivanner@pestroutes.com",
+			"lat": "55.953251",
+			"lng": "-3.188267",
+			"squareFeet": "0",
+			"addedByID": "61",
+			"dateAdded": "2012-08-31 20:17:00",
+			"dateCancelled": "0000-00-00 00:00:00",
+			"dateUpdated": "2019-09-27 11:29:06",
+			"sourceID": "1",
+			"source": "Door to Door",
+			"aPay": "CC",
+			"preferredTechID": "0",
+			"paidInFull": "0",
+			"subscriptionIDs": "10338",
+			"balance": "0.00",
+			"balanceAge": "0",
+			"responsibleBalance": "-1167.25",
+			"responsibleBalanceAge": "0",
+			"customerLink": "0",
+			"masterAccount": "0",
+			"preferredBillingDate": "0",
+			"paymentHoldDate": "2019-08-07 13:09:40",
+			"mostRecentCreditCardLastFour": null,
+			"mostRecentCreditCardExpirationDate": null,
+			"appointmentIDs": "12,5465,6213,7825,8020,8044,8394,8547,8595,8895,9251,9662,10187,10369,10399,22798,22911,22918,22925,23592,23627,24075,24173,30014",
+			"ticketIDs": "1341,1575,2371,38855",
+			"paymentIDs": "4037,5790,12091,12092",
+			"unitIDs": []
+		},
+		{
+			"customerID": "14",
+			"billToAccountID": "14",
+			"officeID": "1",
+			"fname": "John",
+			"lname": "Johnsons",
+			"companyName": "",
+			"spouse": null,
+			"commercialAccount": "0",
+			"status": "1",
+			"statusText": "Active",
+			"email": "davinggg@hotmail.com",
+			"phone1": "2312312341",
+			"phone2": "1",
+			"address": "63287  Worchester Lan",
+			"city": "wylie",
+			"state": "TX",
+			"zip": "75098",
+			"billingCompanyName": "",
+			"billingFName": "John",
+			"billingLName": "Johnsons",
+			"billingCountryID": "US",
+			"billingAddress": "63287  Worchester Lan",
+			"billingCity": "wylie",
+			"billingState": "TX",
+			"billingZip": "75098",
+			"billingPhone": "2312312341",
+			"billingEmail": "davinggg@hotmail.com",
+			"lat": "33.254177",
+			"lng": "-111.555054",
+			"squareFeet": "0",
+			"addedByID": "50",
+			"dateAdded": "2012-08-31 20:16:00",
+			"dateCancelled": "0000-00-00 00:00:00",
+			"dateUpdated": "2019-09-27 11:29:18",
+			"sourceID": "1",
+			"source": "Door to Door",
+			"aPay": "CC",
+			"preferredTechID": "0",
+			"paidInFull": "0",
+			"subscriptionIDs": "9097",
+			"balance": "0.00",
+			"balanceAge": "0",
+			"responsibleBalance": "-434.96",
+			"responsibleBalanceAge": "0",
+			"customerLink": "",
+			"masterAccount": "6196",
+			"preferredBillingDate": "0",
+			"paymentHoldDate": "2018-10-11 00:00:00",
+			"mostRecentCreditCardLastFour": null,
+			"mostRecentCreditCardExpirationDate": null,
+			"appointmentIDs": "14,6215,9768,9806,10280,10339,11018,11547,11576,13562,13563,13564,14801,17258,20037,22368,22371,24171,26130,26135,26138,26712,26794,28042,28547,29083,29592,30312,31984,32268,32367,33385",
+			"ticketIDs": "2486,15924,17997,18001,18002,18003,18004,18075,21503,27982,29301,38848",
+			"paymentIDs": "1927,2157,2159,7155,10233,11288,11782,11792,11794",
+			"unitIDs": []
+		}
+	],
+	"propertyName": "customers"
+}
+
+Payment Profile
+
+	Stand alone payment profile creation
+
+	Example
+
+	Execute
+
+apiModule.call('customer','createPaymentProfile',{
+	"customerID":21049,
+	"billingAddress1":"Updated Billing Address",
+	"billingCity":"Updated Billing City",
+	"billingState":"UT",
+	"billingZip":"84401",
+	"billingCountryID":"US",
+
+	//NMI
+	//"CreditCardTokenID": '170925044'
+
+	//Element
+	"CreditCardToken":'F33F5BB8-142A-4AC8-BD39-1CD523C7A059'
+
+	//Braintree
+	//"CreditCardTokenID":'7qf8yk',
+	//"CreditCardToken":'506160933'
+});
+
+Search for a lot of customers and resolve
+
+	The 'get' endpoint limits the number of results to 1000 entities at a time. The search endpoint returns a maximum of 50,000 IDs at a time. This demo document includes a function 'apiModule.staggeredRequest' that will resolve entity data in groups of 1000 while capping concurrent requests at 4. The function 'apiModule.search' demonstrates the logic necessary to resolve requests with subsequent searchs by adding the filter for primaryID > last ID from previous request.
+
+	Example
+
+	Execute
+
+apiModule.search('customer',{
+	'dateAdded':{
+		'operator':'BETWEEN',
+		'value':[
+			'2010-01-01','2016-01-01'
+		]
+	},
+})
+.then(function(result){
+	return apiModule.staggeredRequest('customer', result);
+})
+.then(console.log);
+
+',
+		'value':'2021-01-01'
+	},
+	'authenticationKey'  :'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+	'authenticationToken':'1111111111111111111111111111111111111111111111111111111111111111'
+}));
+
+xhr.onreadystatechange = function() {
+	if(this.readyState == 4 && this.status == 200){
+		result = JSON.parse(this.responseText);
+		console.log(result);
+	}
+};
+-->

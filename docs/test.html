@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>FieldRoutes API Docs - Test</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+    }
+    .tabs {
+      display: flex;
+      background: #222;
+      color: #fff;
+      padding: 0;
+      margin: 0;
+      border-bottom: 2px solid #444;
+    }
+    .tab {
+      padding: 14px 20px;
+      cursor: pointer;
+      border-right: 1px solid #444;
+      user-select: none;
+    }
+    .tab.active {
+      background: #444;
+    }
+    .tab:hover {
+      background: #333;
+    }
+    .panel {
+      display: none;
+      padding: 20px;
+      height: calc(100vh - 90px);
+      overflow: auto;
+    }
+    .panel.active {
+      display: block;
+    }
+    pre {
+      background: #1e1e1e;
+      color: #f8f8f2;
+      padding: 20px;
+      margin: 0;
+      height: 100%;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="yaml">YAML</div>
+    <div class="tab" data-tab="json">JSON</div>
+    <div class="tab" data-tab="test">Test</div>
+  </div>
+
+  <!-- YAML Viewer -->
+  <div class="panel active" id="panel-yaml">
+    <pre id="yaml-content">Loading YAML...</pre>
+  </div>
+
+  <!-- JSON Viewer -->
+  <div class="panel" id="panel-json">
+    <pre id="json-content">Loading JSON...</pre>
+  </div>
+
+  <!-- Test Panel -->
+  <div class="panel" id="panel-test">
+    <h2>File Test</h2>
+    <div id="test-results"></div>
+  </div>
+
+  <script>
+    console.log("Script started");
+
+    // Tab Switching
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".panel");
+
+    tabs.forEach((tab) =>
+      tab.addEventListener("click", () => {
+        tabs.forEach((t) => t.classList.remove("active"));
+        panels.forEach((p) => p.classList.remove("active"));
+
+        tab.classList.add("active");
+        document.querySelector("#panel-" + tab.dataset.tab).classList.add("active");
+      })
+    );
+
+    // Test files exist
+    const testResults = document.getElementById("test-results");
+    const files = [
+      "fieldroutes-swagger-docs.yaml", 
+      "fieldroutes-swagger-docs.with-summaries.yaml",
+      "fieldroutes-swagger-docs.json"
+    ];
+
+    files.forEach(file => {
+      fetch(file)
+        .then(r => {
+          const status = r.ok ? "✅ OK" : "❌ FAIL";
+          testResults.innerHTML += `<p>${file}: ${status} (${r.status})</p>`;
+          return r.text();
+        })
+        .then(t => {
+          testResults.innerHTML += `<p>${file}: ${t.length} characters</p>`;
+        })
+        .catch(e => {
+          testResults.innerHTML += `<p>${file}: ❌ ERROR - ${e.message}</p>`;
+        });
+    });
+
+    // Load files
+    console.log("Starting to fetch YAML...");
+    fetch("fieldroutes-swagger-docs.with-summaries.yaml")
+      .then((r) => {
+        console.log("YAML fetch response:", r.status, r.statusText);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then((t) => {
+        console.log("YAML content loaded, length:", t.length);
+        document.getElementById("yaml-content").textContent = t;
+      })
+      .catch(e => {
+        console.error("YAML fetch error:", e);
+        document.getElementById("yaml-content").textContent = "Error loading YAML: " + e.message;
+      });
+
+    console.log("Starting to fetch JSON...");
+    fetch("fieldroutes-swagger-docs.json")
+      .then((r) => {
+        console.log("JSON fetch response:", r.status, r.statusText);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.text();
+      })
+      .then((t) => {
+        console.log("JSON content loaded, length:", t.length);
+        document.getElementById("json-content").textContent = t;
+      })
+      .catch(e => {
+        console.error("JSON fetch error:", e);
+        document.getElementById("json-content").textContent = "Error loading JSON: " + e.message;
+      });
+
+    console.log("Script finished loading");
+  </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+name: Sync FieldRoutes spec
+
+# Pulls the FieldRoutes OpenAPI spec from fieldroutes.dev/resources/swagger.js,
+# applies corrections.yaml, snapshots the vendor's /home, /examples and /faq pages,
+# and opens a PR if anything changed upstream.
+
+on:
+  schedule:
+    - cron: "0 13 * * 1"   # Mondays 13:00 UTC (~7am Mountain) — adjust to taste
+  workflow_dispatch: {}     # manual "Run workflow" button
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Install deps
+        run: npm install
+
+      - name: Sync spec
+        run: npm run sync
+
+      - name: Open PR on change
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: spec-sync/upstream
+          title: "Sync: FieldRoutes spec changed upstream"
+          commit-message: "chore: sync FieldRoutes spec from fieldroutes.dev"
+          body: |
+            Automated weekly sync from `fieldroutes.dev/resources/swagger.js`.
+
+            FR additions (new endpoints / params / definitions) are merged into the
+            canonical spec and the site files are regenerated. The 94 extra endpoints
+            and richer params we document are preserved — the merge is additive-only.
+
+            **Review** the additions in the spec-file diffs below. If FR introduced a
+            new doc *error*, add a fix to `corrections.yaml`. No-op if nothing changed.
+
+            `docs/upstream-pages/*.txt` are plain-text snapshots of fieldroutes.dev's
+            **/home, /examples and /faq** pages. A diff there means FieldRoutes changed
+            its prose — rate limits, FAQ answers, example workflows. Those aren't in the
+            OpenAPI spec, so if the change matters, mirror it into the overview in
+            `corrections.yaml` (`info.description`).
+          add-paths: |
+            docs/fieldroutes-swagger-docs.yaml
+            docs/fieldroutes-swagger-docs.json
+            docs/fieldroutes-swagger-docs.with-summaries.yaml
+            docs/fieldroutes-swagger-docs.with-summaries.json
+            docs/upstream.json
+            docs/upstream-pages

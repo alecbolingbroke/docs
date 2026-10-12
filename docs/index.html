@@ -1,0 +1,1141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FieldRoutes API Reference</title>
+
+  <style>
+    /* ============================================================================
+       Design tokens — shadcn/ui (new-york, zinc). Same HSL-triplet convention, so
+       values can be lifted straight from a shadcn theme. Kept as plain CSS: this
+       page ships no build step and the two embedded viewers (ReDoc, Swagger UI)
+       are styled by overriding their CSS anyway.
+       ============================================================================ */
+    :root {
+      --background: 0 0% 100%;
+      --foreground: 240 10% 3.9%;
+      --card: 0 0% 100%;
+      --card-foreground: 240 10% 3.9%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 240 10% 3.9%;
+      --primary: 240 5.9% 10%;
+      --primary-foreground: 0 0% 98%;
+      --secondary: 240 4.8% 95.9%;
+      --secondary-foreground: 240 5.9% 10%;
+      --muted: 240 4.8% 95.9%;
+      --muted-foreground: 240 3.8% 46.1%;
+      --accent: 240 4.8% 95.9%;
+      --accent-foreground: 240 5.9% 10%;
+      --destructive: 0 72.2% 50.6%;
+      --destructive-foreground: 0 0% 98%;
+      --border: 240 5.9% 90%;
+      --input: 240 5.9% 90%;
+      --ring: 240 5.9% 10%;
+      --radius: 0.5rem;
+
+      /* One dark surface shared by every code block on the page. */
+      --code-bg: 240 6% 10%;
+      --code-fg: 240 6% 86%;
+    }
+
+    * { box-sizing: border-box; border-color: hsl(var(--border)); }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      /* Inter when present (shadcn's face), otherwise the platform UI font. */
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    }
+
+    body { display: flex; flex-direction: column; }
+
+    ::selection { background: hsl(var(--foreground) / .12); }
+
+    /* ---------------------------------------------------------------- header */
+    header {
+      flex: none;
+      background: hsl(var(--background));
+      border-bottom: 1px solid hsl(var(--border));
+      padding: 14px 24px 0;
+    }
+
+    .titlebar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+
+    .titlebar h1 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      margin: 0;
+    }
+
+    /* Badge — shadcn secondary variant */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      background: hsl(var(--secondary));
+      color: hsl(var(--secondary-foreground));
+      padding: 2px 9px;
+      font-size: 11.5px;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+
+    .badge.outline { background: transparent; border-color: hsl(var(--border)); color: hsl(var(--muted-foreground)); font-weight: 400; }
+
+    .titlebar .spacer { flex: 1; }
+
+    .titlebar a.link {
+      font-size: 13px;
+      color: hsl(var(--muted-foreground));
+      text-decoration: none;
+      text-underline-offset: 3px;
+    }
+
+    .titlebar a.link:hover { color: hsl(var(--foreground)); text-decoration: underline; }
+
+    /* ---------------------------------------------------------------- card */
+    .card {
+      background: hsl(var(--card));
+      color: hsl(var(--card-foreground));
+      border: 1px solid hsl(var(--border));
+      border-radius: var(--radius);
+      box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .conn { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+
+    .field { display: flex; flex-direction: column; gap: 6px; }
+
+    .field label {
+      font-size: 12.5px;
+      font-weight: 500;
+      line-height: 1;
+      color: hsl(var(--foreground));
+    }
+
+    /* Input — shadcn h-9, rounded-md, ring on focus */
+    .field input[type="text"], .field input[type="password"] {
+      height: 36px;
+      min-width: 216px;
+      border-radius: calc(var(--radius) - 2px);
+      border: 1px solid hsl(var(--input));
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      padding: 0 12px;
+      font: inherit;
+      font-size: 13.5px;
+      transition: box-shadow .15s ease, border-color .15s ease;
+    }
+
+    .field input::placeholder { color: hsl(var(--muted-foreground)); }
+
+    .field input:focus-visible {
+      outline: none;
+      border-color: hsl(var(--ring));
+      box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / .25);
+    }
+
+    /* Button — shadcn default / outline */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 16px;
+      border-radius: calc(var(--radius) - 2px);
+      border: 1px solid transparent;
+      font: inherit;
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color .15s ease, opacity .15s ease, box-shadow .15s ease;
+    }
+
+    .btn:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / .25); }
+
+    .btn-default { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); }
+    .btn-default:hover { background: hsl(var(--primary) / .9); }
+
+    .btn-outline { background: hsl(var(--background)); border-color: hsl(var(--border)); color: hsl(var(--foreground)); }
+    .btn-outline:hover { background: hsl(var(--accent)); }
+
+    /* Checkbox row */
+    .checks { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; }
+
+    .checks label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: hsl(var(--foreground));
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .checks input[type="checkbox"] {
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      border: 1px solid hsl(var(--primary) / .35);
+      border-radius: 4px;
+      background: hsl(var(--background));
+      cursor: pointer;
+      display: grid;
+      place-content: center;
+      transition: background-color .12s ease, border-color .12s ease;
+    }
+
+    .checks input[type="checkbox"]:checked {
+      background: hsl(var(--primary));
+      border-color: hsl(var(--primary));
+    }
+
+    .checks input[type="checkbox"]:checked::after {
+      content: "";
+      width: 9px;
+      height: 5px;
+      border-left: 2px solid hsl(var(--primary-foreground));
+      border-bottom: 2px solid hsl(var(--primary-foreground));
+      transform: rotate(-45deg) translate(1px, -1px);
+    }
+
+    .checks input[type="checkbox"]:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / .25); }
+
+    /* Status pill */
+    #conn-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: hsl(var(--muted-foreground));
+      padding-bottom: 9px;
+    }
+
+    #conn-status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 9999px;
+      background: hsl(var(--muted-foreground) / .5);
+    }
+
+    #conn-status.ok { color: hsl(var(--foreground)); }
+    #conn-status.ok::before { background: hsl(142 71% 40%); }
+    #conn-status.warn::before { background: hsl(38 92% 50%); }
+
+    /* Alert — shadcn, muted variant. A standing disclosure, not an alarm. */
+    .alert {
+      display: flex;
+      gap: 10px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--muted) / .55);
+      border-radius: var(--radius);
+      padding: 11px 14px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: hsl(var(--muted-foreground));
+      margin-bottom: 14px;
+    }
+
+    .alert svg { flex: none; margin-top: 2px; color: hsl(var(--muted-foreground)); }
+    .alert strong { color: hsl(var(--foreground)); font-weight: 600; }
+    .alert code { font-size: 11.5px; }
+
+    /* Inline code, page-wide */
+    code {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: .92em;
+      background: hsl(var(--muted));
+      border: 1px solid hsl(var(--border));
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+
+    /* ---------------------------------------------------------------- tabs */
+    .tabs {
+      display: inline-flex;
+      align-items: center;
+      height: 38px;
+      padding: 3px;
+      gap: 2px;
+      border-radius: var(--radius);
+      background: hsl(var(--muted));
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      height: 32px;
+      padding: 0 14px;
+      border-radius: calc(var(--radius) - 3px);
+      font-size: 13px;
+      font-weight: 500;
+      color: hsl(var(--muted-foreground));
+      cursor: pointer;
+      user-select: none;
+      transition: color .15s ease, background-color .15s ease;
+    }
+
+    .tab:hover { color: hsl(var(--foreground)); }
+
+    .tab.active {
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05);
+    }
+
+    /* ---------------------------------------------------------------- panels */
+    main { flex: 1; min-height: 0; position: relative; background: hsl(var(--background)); }
+
+    .panel { display: none; height: 100%; overflow: auto; }
+    .panel.active { display: block; }
+
+    pre.raw {
+      background: hsl(var(--code-bg));
+      color: hsl(var(--code-fg));
+      padding: 20px 24px;
+      margin: 0;
+      min-height: 100%;
+      white-space: pre;
+      overflow: auto;
+      font: 12px/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      text-align: center;
+      gap: 10px;
+      padding: 24px;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .placeholder h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; color: hsl(var(--foreground)); }
+    .placeholder p { margin: 0; max-width: 48ch; font-size: 13.5px; }
+
+    /* ============================================================================
+       ReDoc + Swagger UI, mapped onto the tokens above. Both ship their own accent
+       palettes — ReDoc red inline code on blue-on-black samples, Swagger blue links
+       with purple code, a blue Execute and a red Cancel. Left alone they'd put five
+       competing accents on a page whose whole design language is one neutral ramp.
+       ============================================================================ */
+
+    /* Inline chips only. Excluded from `pre` and `.redoc-json` (ReDoc's response
+       samples on the dark right panel) — a broader selector out-specifies the block
+       rules below and paints light chips onto the dark surfaces. */
+    #panel-redoc :not(pre):not(.redoc-json) > code {
+      background: hsl(var(--muted)) !important;
+      color: hsl(var(--foreground)) !important;
+      border: 1px solid hsl(var(--border)) !important;
+      border-radius: 4px !important;
+      padding: 1px 5px !important;
+      font-size: 12.5px !important;
+      font-weight: 400 !important;
+    }
+
+    #panel-redoc pre,
+    #panel-redoc pre > code {
+      background: hsl(var(--code-bg)) !important;
+      color: hsl(var(--code-fg)) !important;
+      border: none !important;
+    }
+
+    #panel-redoc pre > code { padding: 0 !important; font-size: 12.5px !important; }
+    #panel-redoc pre { padding: 14px 16px !important; border-radius: calc(var(--radius) - 2px) !important; }
+
+    /* Three muted tokens: enough to separate keys from values, nothing more. */
+    #panel-redoc .token.punctuation,
+    #panel-redoc .token.operator { color: hsl(240 5% 55%) !important; }
+
+    #panel-redoc .token.property,
+    #panel-redoc .token.string-property,
+    #panel-redoc .token.literal-property,
+    #panel-redoc .token.keyword,
+    #panel-redoc .token.tag { color: hsl(160 25% 68%) !important; }
+
+    #panel-redoc .token.string,
+    #panel-redoc .token.number,
+    #panel-redoc .token.boolean { color: hsl(35 35% 72%) !important; }
+
+    #panel-redoc .token.comment { color: hsl(240 5% 48%) !important; font-style: italic; }
+
+    #panel-redoc table th {
+      background: hsl(var(--muted)) !important;
+      font-size: 11.5px !important;
+      font-weight: 500 !important;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: hsl(var(--muted-foreground)) !important;
+    }
+
+    #panel-redoc table td, #panel-redoc table th { border-color: hsl(var(--border)) !important; }
+
+    /* On a single-ramp neutral palette a link can't be signalled by colour, so it needs
+       an underline to stay discoverable. */
+    /* Scoped to prose containers (ReDoc's own classes are generated hashes, so there's
+       nothing stable to hook) — which also keeps sidebar navigation un-underlined. */
+    #panel-redoc p a,
+    #panel-redoc li a,
+    #panel-redoc td a,
+    #panel-swagger .swagger-ui .renderedMarkdown a,
+    #panel-swagger .swagger-ui .markdown a {
+      text-decoration: underline !important;
+      text-decoration-color: hsl(var(--muted-foreground) / .45) !important;
+      text-underline-offset: 3px;
+    }
+
+    #panel-redoc p a:hover,
+    #panel-redoc li a:hover,
+    #panel-swagger .swagger-ui .renderedMarkdown a:hover {
+      text-decoration-color: hsl(var(--foreground)) !important;
+    }
+
+    /* ---- Swagger UI ---- */
+
+    /* The overview renders in full on the Reference tab; repeating it above the
+       endpoint list buries the thing this tab exists for. */
+    #panel-swagger .information-container { display: none !important; }
+
+    /* Auth comes from the connection bar, so Swagger's own lock buttons would be a
+       second, conflicting place to enter credentials. Scheme is forced to https by
+       the request interceptor, so its picker is misleading too. */
+    #panel-swagger .auth-wrapper,
+    #panel-swagger .authorization__btn,
+    #panel-swagger .scheme-container { display: none !important; }
+
+    #panel-swagger { background: hsl(var(--background)); }
+    #panel-swagger .swagger-ui { font-family: inherit; color: hsl(var(--foreground)); }
+    #panel-swagger .swagger-ui a { color: hsl(var(--foreground)) !important; text-underline-offset: 3px; }
+
+    /* Inline chips, scoped out of `pre` — exactly as on the Reference tab. Without the
+       :not(pre) the chip's light background and near-black text land on Swagger's dark
+       example block and render it as illegible dark-on-dark. */
+    #panel-swagger .swagger-ui :not(pre) > code,
+    #panel-swagger .swagger-ui .markdown :not(pre) > code,
+    #panel-swagger .swagger-ui .renderedMarkdown :not(pre) > code {
+      background: hsl(var(--muted)) !important;
+      color: hsl(var(--foreground)) !important;
+      border: 1px solid hsl(var(--border)) !important;
+      border-radius: 4px !important;
+      padding: 1px 5px !important;
+      font-weight: 400 !important;
+    }
+
+    #panel-swagger .swagger-ui pre,
+    #panel-swagger .swagger-ui pre > code,
+    #panel-swagger .swagger-ui .highlight-code > .microlight {
+      background: hsl(var(--code-bg)) !important;
+      color: hsl(var(--code-fg)) !important;
+      border: none !important;
+      border-radius: calc(var(--radius) - 2px) !important;
+    }
+
+    #panel-swagger .swagger-ui pre > code { padding: 0 !important; border-radius: 0 !important; }
+
+    /* Swagger's highlighter writes token colours as inline styles (a bright green for
+       strings), which only an !important rule can reach. Pulled to the same muted value
+       colour the Reference tab uses. */
+    #panel-swagger .swagger-ui pre.microlight span[style*="color"] { color: hsl(35 35% 72%) !important; }
+
+    #panel-swagger .swagger-ui .btn {
+      border-radius: calc(var(--radius) - 2px) !important;
+      font-family: inherit !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+      text-transform: none !important;
+    }
+
+    #panel-swagger .swagger-ui .btn.execute {
+      background: hsl(var(--primary)) !important;
+      border-color: hsl(var(--primary)) !important;
+      color: hsl(var(--primary-foreground)) !important;
+    }
+
+    #panel-swagger .swagger-ui .btn.try-out__btn {
+      background: hsl(var(--background)) !important;
+      border-color: hsl(var(--border)) !important;
+      color: hsl(var(--foreground)) !important;
+    }
+
+    /* Every operation here is POST, so a saturated badge on all 276 is pure noise. */
+    #panel-swagger .swagger-ui .opblock .opblock-summary-method {
+      background: hsl(var(--primary)) !important;
+      color: hsl(var(--primary-foreground)) !important;
+      font-family: inherit !important;
+      font-size: 11.5px !important;
+      font-weight: 500 !important;
+      border-radius: 4px !important;
+      text-shadow: none !important;
+      min-width: 62px !important;
+    }
+
+    #panel-swagger .swagger-ui .opblock {
+      border: 1px solid hsl(var(--border)) !important;
+      border-radius: var(--radius) !important;
+      background: hsl(var(--card)) !important;
+      box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05) !important;
+      margin: 0 0 8px !important;
+    }
+
+    #panel-swagger .swagger-ui .opblock .opblock-summary { border-color: hsl(var(--border)) !important; }
+    #panel-swagger .swagger-ui .opblock-summary-path { font-size: 13.5px !important; color: hsl(var(--foreground)) !important; }
+    #panel-swagger .swagger-ui .opblock-summary-description { color: hsl(var(--muted-foreground)) !important; font-size: 13px !important; }
+
+    #panel-swagger .swagger-ui .opblock-tag {
+      font-family: inherit !important;
+      font-size: 15px !important;
+      font-weight: 600 !important;
+      letter-spacing: -.01em;
+      color: hsl(var(--foreground)) !important;
+      border-bottom-color: hsl(var(--border)) !important;
+      padding: 12px 0 !important;
+    }
+
+    #panel-swagger .swagger-ui .opblock-tag small { color: hsl(var(--muted-foreground)) !important; font-weight: 400 !important; }
+
+    #panel-swagger .swagger-ui .filter .operation-filter-input {
+      height: 36px;
+      border: 1px solid hsl(var(--input)) !important;
+      border-radius: calc(var(--radius) - 2px) !important;
+      font-family: inherit !important;
+      font-size: 13.5px !important;
+      padding: 0 12px !important;
+    }
+
+    #panel-swagger .swagger-ui table thead tr th,
+    #panel-swagger .swagger-ui .parameter__name,
+    #panel-swagger .swagger-ui .parameter__type { font-family: inherit !important; }
+
+    #panel-swagger .swagger-ui select,
+    #panel-swagger .swagger-ui input[type=text] {
+      border: 1px solid hsl(var(--input)) !important;
+      border-radius: calc(var(--radius) - 2px) !important;
+      box-shadow: none !important;
+      font-family: inherit !important;
+    }
+
+    /* Live request preview, injected into each open operation. Swagger UI itself shows
+       nothing until after Execute, which is too late to catch a mistake. */
+    .fr-preview {
+      margin: 0 20px 12px;
+      border: 1px solid hsl(var(--border));
+      border-radius: calc(var(--radius) - 2px);
+      background: hsl(var(--muted) / .5);
+      overflow: hidden;
+    }
+
+    .fr-preview-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-bottom: 1px solid hsl(var(--border));
+    }
+
+    .fr-preview-head span {
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: hsl(var(--muted-foreground));
+    }
+
+    .fr-preview-head .grow { flex: 1; }
+
+    .fr-copy {
+      height: 26px;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 5px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--background));
+      color: hsl(var(--foreground));
+      cursor: pointer;
+    }
+
+    .fr-copy:hover { background: hsl(var(--accent)); }
+
+    .fr-preview-url {
+      margin: 0;
+      padding: 10px 12px;
+      font: 12px/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      color: hsl(var(--foreground));
+      word-break: break-all;
+      white-space: pre-wrap;
+    }
+
+    .fr-preview-url .fr-dim { color: hsl(var(--muted-foreground)); }
+    .fr-preview-url .fr-verb { font-weight: 600; }
+
+    /* ---------------------------------------------------------------- toast */
+    /* shadcn/sonner: a card that slides in, not a coloured alarm bar. */
+    #toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      max-width: min(420px, calc(100vw - 40px));
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      background: hsl(var(--popover));
+      color: hsl(var(--popover-foreground));
+      border: 1px solid hsl(var(--border));
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      box-shadow: 0 10px 30px -10px rgb(0 0 0 / .25), 0 4px 8px -4px rgb(0 0 0 / .1);
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    #toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    #toast svg { flex: none; margin-top: 1px; color: hsl(var(--destructive)); }
+    #toast .toast-title { font-weight: 600; margin-bottom: 2px; }
+    #toast .toast-body { color: hsl(var(--muted-foreground)); }
+
+    @media (max-width: 780px) {
+      header { padding: 12px 16px 0; }
+      .field { flex: 1 1 100%; }
+      .field input[type="text"], .field input[type="password"] { min-width: 0; width: 100%; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="titlebar">
+      <h1>FieldRoutes API Reference</h1>
+      <span class="badge">276 endpoints</span>
+      <span class="badge outline">unofficial</span>
+      <span class="badge outline">synced weekly</span>
+      <span class="spacer"></span>
+      <a class="link" href="https://github.com/alecbolingbroke/fieldroutes-docs/issues" target="_blank" rel="noopener">Report an error &nearr;</a>
+    </div>
+
+    <div class="card">
+      <div class="conn">
+        <div class="field">
+          <label for="host">FieldRoutes host</label>
+          <input id="host" type="text" placeholder="mycompany.fieldroutes.com" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label for="key">Authentication key</label>
+          <input id="key" type="password" placeholder="authenticationKey" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="field">
+          <label for="token">Authentication token</label>
+          <input id="token" type="password" placeholder="authenticationToken" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" id="remember" /> Remember on this device</label>
+          <label><input type="checkbox" id="allow-writes" /> Allow write operations</label>
+        </div>
+        <div class="field">
+          <button class="btn btn-default" id="save">Use these</button>
+        </div>
+        <div class="field">
+          <button class="btn btn-outline" id="clear">Clear</button>
+        </div>
+        <span id="conn-status">Not connected</span>
+      </div>
+    </div>
+
+    <div class="alert">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+      <div>
+        <strong>Your credentials stay in this browser.</strong> They are attached to requests your
+        browser sends directly to your own FieldRoutes host — this site has no backend and never
+        receives them. &ldquo;Remember on this device&rdquo; stores them in <code>localStorage</code>;
+        leave it unchecked on a shared machine. Requests hit <strong>live data</strong>, so writes
+        stay blocked until you tick &ldquo;Allow write operations&rdquo;. Note that the curl and
+        request URL Swagger shows <em>after</em> Execute contain your key and token in plain
+        text — worth collapsing before you screen-share.
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <div class="tab active" data-tab="redoc" role="tab">Reference</div>
+      <div class="tab" data-tab="swagger" role="tab">Try it</div>
+      <div class="tab" data-tab="yaml" role="tab">YAML</div>
+      <div class="tab" data-tab="json" role="tab">JSON</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="panel active" id="panel-redoc">
+      <div class="placeholder"><p>Loading reference&hellip;</p></div>
+    </div>
+
+    <div class="panel" id="panel-swagger">
+      <div class="placeholder">
+        <h2>Try it out</h2>
+        <p>
+          Enter your host, key and token above, then pick an endpoint and hit
+          <em>Execute</em>. Calls go straight from your browser to your FieldRoutes tenant.
+        </p>
+        <button class="btn btn-default" onclick="loadSwagger()">Load the API explorer</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-yaml"><pre class="raw" id="yaml-content">Loading YAML&hellip;</pre></div>
+    <div class="panel" id="panel-json"><pre class="raw" id="json-content">Loading JSON&hellip;</pre></div>
+  </main>
+
+  <div id="toast" role="alert" aria-live="assertive"></div>
+  <script>
+    // ---------------------------------------------------------------- spec
+    // One fetch of the display spec (summaries + entity tags + x-fr-write) feeds both
+    // viewers and the write guard, so there's no in-browser YAML parser to ship.
+    const SPEC_URL = "fieldroutes-swagger-docs.with-summaries.json";
+    let spec = null;
+    const specReady = fetch(SPEC_URL)
+      .then((r) => { if (!r.ok) throw new Error(r.status + " " + r.statusText); return r.json(); })
+      .then((s) => (spec = s));
+
+    // ---------------------------------------------------------------- credentials
+    // sessionStorage by default; localStorage only when the user opts in. Whichever the
+    // user last chose is the one we read back, so "Remember" survives a reload.
+    const STORE_KEY = "fr_docs_creds";
+    const els = {
+      host: document.getElementById("host"),
+      key: document.getElementById("key"),
+      token: document.getElementById("token"),
+      remember: document.getElementById("remember"),
+      writes: document.getElementById("allow-writes"),
+      status: document.getElementById("conn-status"),
+    };
+
+    // Accept "mycompany", "mycompany.fieldroutes.com", or a pasted URL.
+    function normalizeHost(raw) {
+      let h = (raw || "").trim().replace(/^https?:\/\//i, "").replace(/\/.*$/, "");
+      if (!h) return "";
+      if (!h.includes(".")) h += ".fieldroutes.com";
+      return h;
+    }
+
+    function creds() {
+      return {
+        host: normalizeHost(els.host.value),
+        key: els.key.value.trim(),
+        token: els.token.value.trim(),
+        writes: els.writes.checked,
+      };
+    }
+
+    function renderStatus() {
+      const c = creds();
+      const ready = c.host && c.key && c.token;
+      els.status.textContent = ready
+        ? "Connected to " + c.host + (c.writes ? " · writes ON" : " · read-only")
+        : "Not connected";
+      els.status.className = ready ? "ok" : "off";
+    }
+
+    function persist() {
+      const payload = JSON.stringify({
+        host: els.host.value, key: els.key.value, token: els.token.value,
+        writes: els.writes.checked, remember: els.remember.checked,
+      });
+      sessionStorage.removeItem(STORE_KEY);
+      localStorage.removeItem(STORE_KEY);
+      (els.remember.checked ? localStorage : sessionStorage).setItem(STORE_KEY, payload);
+      renderStatus();
+    }
+
+    (function restore() {
+      const raw = localStorage.getItem(STORE_KEY) || sessionStorage.getItem(STORE_KEY);
+      if (raw) {
+        try {
+          const c = JSON.parse(raw);
+          els.host.value = c.host || "";
+          els.key.value = c.key || "";
+          els.token.value = c.token || "";
+          els.writes.checked = !!c.writes;
+          els.remember.checked = !!c.remember;
+        } catch (e) { /* corrupt entry — ignore and start clean */ }
+      }
+      renderStatus();
+    })();
+
+    document.getElementById("save").addEventListener("click", persist);
+    document.getElementById("clear").addEventListener("click", () => {
+      localStorage.removeItem(STORE_KEY);
+      sessionStorage.removeItem(STORE_KEY);
+      els.host.value = els.key.value = els.token.value = "";
+      els.remember.checked = els.writes.checked = false;
+      renderStatus();
+    });
+    [els.host, els.key, els.token].forEach((el) => el.addEventListener("input", renderStatus));
+    els.writes.addEventListener("change", renderStatus);
+
+    // ---------------------------------------------------------------- tabs
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".panel");
+
+    function switchToTab(name) {
+      const tab = document.querySelector('[data-tab="' + name + '"]');
+      const panel = document.querySelector("#panel-" + name);
+      if (!tab || !panel) return;
+      tabs.forEach((t) => t.classList.remove("active"));
+      panels.forEach((p) => p.classList.remove("active"));
+      tab.classList.add("active");
+      panel.classList.add("active");
+      if (name === "redoc") loadRedoc();
+      if (name === "swagger" && !window.__swaggerLoaded) loadSwagger();
+    }
+
+    tabs.forEach((tab) => tab.addEventListener("click", () => {
+      switchToTab(tab.dataset.tab);
+      history.replaceState(null, "", "#" + tab.dataset.tab);
+    }));
+
+    function handleHash() {
+      const h = location.hash.slice(1);
+      switchToTab(["yaml", "json", "swagger", "redoc"].includes(h) ? h : "redoc");
+    }
+    window.addEventListener("hashchange", handleHash);
+
+    // ---------------------------------------------------------------- raw views
+    fetch("fieldroutes-swagger-docs.with-summaries.yaml")
+      .then((r) => r.text())
+      .then((t) => { document.getElementById("yaml-content").textContent = t; })
+      .catch((e) => { document.getElementById("yaml-content").textContent = "Error loading YAML: " + e.message; });
+
+    specReady
+      .then((s) => { document.getElementById("json-content").textContent = JSON.stringify(s, null, 2); })
+      .catch((e) => { document.getElementById("json-content").textContent = "Error loading JSON: " + e.message; });
+
+    // ---------------------------------------------------------------- ReDoc
+    let redocStarted = false;
+    function loadRedoc() {
+      if (redocStarted) return;
+      redocStarted = true;
+      specReady.then((s) => {
+        const script = document.createElement("script");
+        script.src = "https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js";
+        script.onload = () => {
+          const el = document.getElementById("panel-redoc");
+          el.innerHTML = "";
+          Redoc.init(s, {
+            hideDownloadButton: true,
+            expandresponses: "200",
+            sortTagsAlphabetically: false,
+            // Resolved equivalents of the CSS tokens above — ReDoc's theme API takes
+            // literal colours, so these must be kept in step with :root.
+            theme: {
+              colors: {
+                primary: { main: "#18181b" },
+                text: { primary: "#09090b", secondary: "#71717a" },
+                border: { dark: "#e4e4e7", light: "#f4f4f5" },
+                http: { get: "#52525b", post: "#18181b", put: "#52525b", delete: "#52525b" },
+              },
+              typography: {
+                fontSize: "14px",
+                lineHeight: "1.5",
+                fontFamily: 'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                headings: { fontFamily: "inherit", fontWeight: "600" },
+                code: { fontSize: "12.5px", color: "#09090b", backgroundColor: "#f4f4f5" },
+              },
+              sidebar: { backgroundColor: "#fafafa", textColor: "#09090b", activeTextColor: "#09090b" },
+              // Kept dark deliberately. ReDoc renders response samples at 70% of this
+              // textColor, so a light panel washes them out to unreadable grey-on-grey.
+              // Matching the code-block tone gives one dark surface across the page.
+              rightPanel: { backgroundColor: "#18181b", textColor: "#e4e4e7" },
+            },
+          }, el);
+        };
+        script.onerror = () => {
+          document.getElementById("panel-redoc").innerHTML =
+            '<div class="placeholder"><h2>Reference unavailable</h2>' +
+            "<p>ReDoc is loaded from a CDN and it didn't load. The YAML and JSON tabs still work offline.</p></div>";
+        };
+        document.head.appendChild(script);
+      }).catch((e) => {
+        document.getElementById("panel-redoc").innerHTML =
+          '<div class="placeholder"><h2>Could not load the spec</h2><p>' + e.message + "</p></div>";
+      });
+    }
+
+    // ---------------------------------------------------------------- Swagger UI
+    // Every FieldRoutes parameter is `in: query`, so Swagger UI builds a URL-only request
+    // with no body. We keep it that way deliberately: a request with no custom headers is
+    // a CORS "simple request", so the browser skips the preflight. That matters because
+    // the API answers OPTIONS with `Access-Control-Allow-Headers: X-Requested-With` only —
+    // adding a Content-Type would fail preflight and the call would never leave the browser.
+    let toastTimer = null;
+    const TOAST_ICON =
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>';
+
+    function toast(title, body) {
+      const el = document.getElementById("toast");
+      el.innerHTML = TOAST_ICON + '<div><div class="toast-title"></div><div class="toast-body"></div></div>';
+      el.querySelector(".toast-title").textContent = title;
+      el.querySelector(".toast-body").textContent = body || "";
+      el.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove("show"), 7000);
+    }
+
+    // Show the reason, then abort the request by throwing.
+    function refuse(title, body) {
+      toast(title, body);
+      throw new Error(title + (body ? " " + body : ""));
+    }
+
+    // Both guards fail closed: anything we can't confidently resolve to a known read is
+    // treated as a write, so an unrecognized path asks for consent rather than firing.
+    function isWritePath(p) {
+      const op = spec && spec.paths[p];
+      return op ? Object.values(op).some((o) => o && o["x-fr-write"]) : true;
+    }
+
+    function isWrite(url) {
+      if (!spec) return true; // spec not loaded yet — assume the risky answer
+      const m = new URL(url, location.href).pathname.match(/\/api(\/[^/]+\/[^/?]+)/);
+      if (!m) return true;
+      const [, entity, action] = m[1].split("/");
+      // Swagger UI substitutes real values into path params, so `/customer/[id]` arrives
+      // as `/customer/12345`. Fall back to the templated path when there's no exact hit.
+      if (spec.paths[m[1]]) return isWritePath(m[1]);
+      // Only trust the template fallback when the segment really looks like an id.
+      if (!/^\d+$/.test(action)) return true;
+      const tpl = ["/" + entity + "/[id]", "/" + entity + "/{id}"].find((t) => spec.paths[t]);
+      return tpl ? isWritePath(tpl) : true;
+    }
+
+    // ---------------------------------------------------------------- live preview
+    // Swagger UI renders the request URL only *after* Execute, so there's no way to
+    // check what you're about to send — which matters when the thing you're about to
+    // send hits live data. This mirrors the URL as you type.
+    //
+    // Built from the DOM (the filled-in inputs) plus the spec (to know which parameters
+    // are path vs query), so it reflects exactly what the interceptor will produce.
+    const MASK = "•".repeat(8);
+
+    function buildRequest(opblock, reveal) {
+      const path = opblock.querySelector(".opblock-summary-path")?.textContent.trim();
+      if (!path) return null;
+      const c = creds();
+      const opSpec = spec && spec.paths[path] && Object.values(spec.paths[path])[0];
+      const paramSpec = new Map(((opSpec && opSpec.parameters) || []).map((p) => [p.name, p]));
+      const paramIn = new Map([...paramSpec].map(([n, p]) => [n, p.in]));
+
+      // Array parameters render as an "Add item" list, so one row holds several inputs.
+      // Swagger serialises them per collectionFormat — unset means csv in OpenAPI 2.0,
+      // which is every array parameter in this spec.
+      const SEPARATORS = { csv: ",", ssv: " ", tsv: "\t", pipes: "|" };
+
+      let urlPath = path;
+      const query = [];
+      opblock.querySelectorAll(".parameters tr").forEach((tr) => {
+        const name = tr.querySelector(".parameter__name")?.textContent.replace(/\*/g, "").trim();
+        if (!name) return;
+        const values = [...tr.querySelectorAll("input, select, textarea")]
+          .map((f) => (f.value == null ? "" : String(f.value).trim()))
+          .filter((v) => v !== "");
+        if (!values.length) return;
+
+        // Substitute only what the spec actually declares as a path parameter. Guessing
+        // by name (say, anything ending in "ID") would silently drop a query parameter
+        // out of the request on the `[id]` endpoints.
+        if (paramIn.get(name) === "path") {
+          urlPath = urlPath.replace(/\/[[{][^\]}]*[\]}]/, "/" + encodeURIComponent(values[0]));
+          return;
+        }
+
+        const p = paramSpec.get(name);
+        if (p && p.type === "array") {
+          if (p.collectionFormat === "multi") values.forEach((v) => query.push([name, v]));
+          else query.push([name, values.join(SEPARATORS[p.collectionFormat] || ",")]);
+          return;
+        }
+        query.push([name, values[0]]);
+      });
+
+      const host = c.host || "your-host.fieldroutes.com";
+      query.push(["authenticationKey", reveal ? c.key : MASK]);
+      query.push(["authenticationToken", reveal ? c.token : MASK]);
+      const qs = query.map(([k, v]) => encodeURIComponent(k) + "=" + (v === MASK ? MASK : encodeURIComponent(v))).join("&");
+      return { url: "https://" + host + "/api" + urlPath + "?" + qs, hasCreds: !!(c.key && c.token) };
+    }
+
+    function renderPreview(opblock) {
+      // Only while "Try it out" is active — otherwise there's nothing to preview.
+      const live = opblock.classList.contains("is-open") && opblock.querySelector(".execute");
+      let node = opblock.querySelector(".fr-preview");
+      if (!live) { if (node) node.remove(); return; }
+
+      const req = buildRequest(opblock, false);
+      if (!req) return;
+
+      if (!node) {
+        node = document.createElement("div");
+        node.className = "fr-preview";
+        node.innerHTML =
+          '<div class="fr-preview-head"><span>Request preview</span><span class="grow"></span>' +
+          '<button type="button" class="fr-copy">Copy</button></div>' +
+          '<div class="fr-preview-url"></div>';
+        node.querySelector(".fr-copy").addEventListener("click", (ev) => {
+          ev.preventDefault();
+          const full = buildRequest(opblock, true);
+          if (!full || !full.hasCreds) return toast("Nothing to copy", "Enter your key and token first.");
+          navigator.clipboard.writeText(full.url).then(
+            () => toast("Copied", "The URL includes your key and token — treat it like a password."),
+            () => toast("Copy failed", "Your browser blocked clipboard access.")
+          );
+        });
+        const wrapper = opblock.querySelector(".execute-wrapper");
+        if (wrapper && wrapper.parentNode) wrapper.parentNode.insertBefore(node, wrapper);
+        else return;
+      }
+
+      const [base, qs] = req.url.split("?");
+      const el = node.querySelector(".fr-preview-url");
+      el.textContent = "";
+      const verb = document.createElement("span");
+      verb.className = "fr-verb";
+      verb.textContent = "POST ";
+      const rest = document.createElement("span");
+      rest.textContent = base;
+      const q = document.createElement("span");
+      q.className = "fr-dim";
+      q.textContent = "?" + qs;
+      el.append(verb, rest, q);
+    }
+
+    function refreshPreviews() {
+      document.querySelectorAll("#panel-swagger .opblock").forEach(renderPreview);
+    }
+
+    // Param edits, try-out/expand clicks, and credential changes all move the preview.
+    let previewTimer = null;
+    function schedulePreview() {
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(refreshPreviews, 120);
+    }
+
+    document.getElementById("panel-swagger").addEventListener("input", schedulePreview);
+    document.getElementById("panel-swagger").addEventListener("change", schedulePreview);
+    document.getElementById("panel-swagger").addEventListener("click", schedulePreview);
+    [els.host, els.key, els.token].forEach((el) => el.addEventListener("input", schedulePreview));
+
+    // Primary gate: stop the click before Swagger UI starts a request at all.
+    //
+    // The requestInterceptor below still refuses (defence in depth, and it covers a
+    // programmatic execute), but throwing from there leaves Swagger holding a null
+    // response object — LiveResponse.render then crashes and the whole operation panel
+    // renders as "Could not render responses". Blocking at the click avoids that state
+    // entirely, so the guard costs the user nothing but a toast.
+    document.getElementById("panel-swagger").addEventListener("click", (ev) => {
+      const btn = ev.target.closest && ev.target.closest(".btn.execute");
+      if (!btn) return;
+      const c = creds();
+      const path = btn.closest(".opblock")?.querySelector(".opblock-summary-path")?.textContent.trim();
+      let stop = null;
+      if (!c.host || !c.key || !c.token) {
+        stop = ["Not connected", "Enter your host, authentication key and token at the top of the page first."];
+      } else if (!c.writes && isWritePath(path)) {
+        stop = ["Write blocked", "This endpoint changes live data. Tick “Allow write operations” at the top if you really mean it."];
+      }
+      if (stop) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        toast(stop[0], stop[1]);
+      }
+    }, true);
+
+    function loadSwagger() {
+      if (window.__swaggerLoaded) return;
+      window.__swaggerLoaded = true;
+
+      const css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = "swagger-ui.css";
+      document.head.appendChild(css);
+
+      const bundle = document.createElement("script");
+      bundle.src = "swagger-ui-bundle.js";
+      document.head.appendChild(bundle);
+
+      bundle.onload = () => specReady.then((s) => {
+        document.getElementById("panel-swagger").innerHTML = '<div id="swagger-ui"></div>';
+        SwaggerUIBundle({
+          spec: s,
+          dom_id: "#swagger-ui",
+          docExpansion: "none",
+          filter: true,
+          defaultModelsExpandDepth: -1,
+          persistAuthorization: false,
+          requestInterceptor: (req) => {
+            const c = creds();
+            // Throwing here does stop the request — but Swagger UI swallows the error
+            // without rendering anything, so the user just sees a dead button. Always
+            // surface the reason ourselves before bailing out.
+            if (!c.host || !c.key || !c.token) {
+              return refuse("Not connected", "Enter your host, authentication key and token at the top of the page first.");
+            }
+            if (isWrite(req.url) && !c.writes) {
+              return refuse(
+                "Write blocked",
+                "This endpoint changes live data. Tick “Allow write operations” at the top if you really mean it."
+              );
+            }
+            const u = new URL(req.url, location.href);
+            u.protocol = "https:";
+            u.host = c.host;
+            u.searchParams.set("authenticationKey", c.key);
+            u.searchParams.set("authenticationToken", c.token);
+            req.url = u.toString();
+            // Replace the header set wholesale rather than trimming it. Two things bite
+            // here: a Content-Type would force a preflight the API rejects, and an
+            // `Accept: text/html` gets a CORS-header-less 406 back from Apache's content
+            // negotiation. Only `accept: application/json` is both safelisted and served.
+            req.headers = { accept: "application/json" };
+            return req;
+          },
+        });
+      });
+
+      bundle.onerror = () => {
+        document.getElementById("panel-swagger").innerHTML =
+          '<div class="placeholder"><h2>Explorer unavailable</h2><p>swagger-ui-bundle.js failed to load.</p></div>';
+      };
+    }
+
+    handleHash();
+  </script>
+
+</body>
+
+</html>
