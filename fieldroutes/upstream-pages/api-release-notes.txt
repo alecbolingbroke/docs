@@ -1,0 +1,23 @@
+FR
+
+    FieldRoutes
+API Release Notes
+The central place for FieldRoutes API changes. Each release hub covers the API updates that shipped in that FieldRoutes release.
+Current release: 10.6 Amethyst
+
+Current release
+10.6 Amethyst API Release Hub
+      API documentation moves to the Knowledge Base; new Customer Source, Subscription, and Appointment fields; authentication status codes; 1,000-row limit on returned records; ticket and tax fixes.
+
+Recent releases
+10.5 Ruby API Release Hub
+      API changes from 10.5 Ruby are covered in the API Documentation Migration Summary.
+Earlier releases were documented on the legacy api.fieldroutes.com site. Everything that changed between that site and the current API is summarized in the API Documentation Migration Summary below.
+
+Other release resources
+API Documentation Migration Summary
+      Every endpoint, field, and parameter added between the legacy documentation and the current API.
+FieldRoutes Release Notes
+      Product release notes for FieldRoutes Web, Mobile, and Customer Portal.
+FieldRoutes API Overview
+      Credentials, a quick start, and the limits and behavior that apply to every endpoint.

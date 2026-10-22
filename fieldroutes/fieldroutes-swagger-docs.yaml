@@ -9,10 +9,10 @@ info:
   description: |
     # FieldRoutes API — Community Reference
 
-    A curated, corrected FieldRoutes OpenAPI spec — more complete than the vendor's
-    published docs (it documents ~90 endpoints and many fields FieldRoutes omits),
-    corrected for known documentation errors, and auto-synced from
-    [fieldroutes.dev](https://fieldroutes.dev) every week.
+    A curated, corrected FieldRoutes OpenAPI spec — FieldRoutes' own published spec,
+    corrected for known documentation errors, with tags, write flags and a glossary
+    added, and auto-synced from FieldRoutes every week. The vendor's prose docs live in
+    the [FieldRoutes Knowledge Base](https://knowledgebase.fieldroutes.com/apidocs/fieldroutes-api-overview).
 
     This is an **unofficial** reference maintained independently of FieldRoutes.
     For account-specific or support issues, contact **apisupport@fieldroutes.com**.
@@ -196,7 +196,7 @@ info:
     straightforward — it's the intended backbone for an MCP server or SDK:
 
     - **`tags`** — every operation is tagged with its entity (`customer`, `spot`, …), and
-      `x-tagGroups` sorts those 62 entities into six sections. Natural tool namespaces.
+      `x-tagGroups` sorts those entities into six sections. Natural tool namespaces.
     - **`x-fr-write: true`** — set on every mutating operation. Use it to gate writes
       behind confirmation, or to expose a read-only tool surface by default.
     - **Machine-readable artifacts** — `fieldroutes-swagger-docs.json` (canonical) and
@@ -209,9 +209,8 @@ info:
 
     ## Common workflows
 
-    Examples below use the vendor's `apiModule` JS helper (from
-    [fieldroutes.dev/examples](https://fieldroutes.dev/examples), which has the full
-    runnable set); the same shapes apply to any HTTP client.
+    Examples below use the vendor's `apiModule` JS helper, from their original
+    developer site; the same shapes apply to any HTTP client.
 
     **Incremental sync — pull everything changed since your last run**
 
@@ -334,9 +333,8 @@ info:
       turn a blip into an outage.
 
     **Why does this spec differ from the vendor's?**
-    It's additive: everything FieldRoutes documents is here, plus endpoints and fields
-    that are real and in use but undocumented upstream, plus corrections where the
-    vendor's docs are wrong. See the caveat below.
+    It's additive: everything FieldRoutes documents is here, plus corrections where
+    the vendor's docs are wrong, plus entity tags and write flags. See the caveat below.
 
     **Something looks wrong here.**
     [Open an issue](https://github.com/alecbolingbroke/docs/issues) with
@@ -532,6 +530,10 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property subscriptionIDsNoDataExported will specify the items that are not included in the resolved subscription array.'
+        - name: autoSchedule
+          in: query
+          type: integer
+          description: 'Auto-schedule behavior for forecasted appointments. Values: -1 = Due Date Method, 0 = No autoSchedule, 1 = Next Appointment, >1 = Next X appointments.'
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -852,6 +854,32 @@ paths:
           type: integer
           description: Capacity Estimate Value
           required: false
+        - name: billingCustomSchedule
+          in: query
+          type: object
+          description: 'Array of custom-schedule objects for billing. billingCustomScheduleTemplateID is ignored and billingFrequency is set to -3. Each entry: month (1-12), day (1-31), amount (decimal billing amount). Example: [{"month":6,"day":26,"amount":150.00},{"month":7,"day":12,"amount":75.00}]'
+          required: false
+        - name: dateAdded
+          in: query
+          type: string
+          description: Date this subscription was sold. Defaults to current date/time on create.
+          required: false
+        - name: soldDate
+          in: query
+          type: string
+          description: Alias for dateAdded. Date this subscription was sold.
+          required: false
+        - name: addInitialService
+          in: query
+          type: integer
+          description: When 1, auto-schedules the initial appointment on initialServiceDate using the subscription's scheduling preferences.
+          required: false
+          default: 0
+        - name: initialServiceDate
+          in: query
+          type: string
+          description: Date to schedule the initial appointment on. Required when addInitialService=1.
+          required: false
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -1107,6 +1135,26 @@ paths:
           in: query
           type: object
           description: Array of ticket addon objects, see ticket/createAddon for parameters
+          required: false
+        - name: billingCustomSchedule
+          in: query
+          type: object
+          description: 'Array of custom-schedule objects for billing. billingCustomScheduleTemplateID is ignored and billingFrequency is set to -3. Each entry: month (1-12), day (1-31), amount (decimal billing amount). Example: [{"month":6,"day":26,"amount":150.00},{"month":7,"day":12,"amount":75.00}]'
+          required: false
+        - name: dateAdded
+          in: query
+          type: string
+          description: Date this subscription was sold. Defaults to current date/time on create.
+          required: false
+        - name: soldDate
+          in: query
+          type: string
+          description: Alias for dateAdded. Date this subscription was sold.
+          required: false
+        - name: onHold
+          in: query
+          type: integer
+          description: Set to 1 to place the subscription on hold, 0 to remove the hold.
           required: false
       security:
         - authenticationToken: []
@@ -2145,6 +2193,16 @@ paths:
           type: integer
           description: Sets the Purple Dragon customer flag checkbox
           required: false
+        - name: lotSize
+          in: query
+          type: integer
+          description: Lot size in square feet, as stored in the customer table.
+          required: false
+        - name: subSourceID
+          in: query
+          type: integer
+          description: subSourceID for the customer (from Admin > Preferences > Customer References > Customer Sub Sources)
+          required: false
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -2531,6 +2589,16 @@ paths:
           type: integer
           description: Primary key to the customers table.
           required: true
+        - name: lotSize
+          in: query
+          type: integer
+          description: Lot size in square feet, as stored in the customer table.
+          required: false
+        - name: subSourceID
+          in: query
+          type: integer
+          description: subSourceID for the customer (from Admin > Preferences > Customer References > Customer Sub Sources)
+          required: false
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -2796,6 +2864,10 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property ticketIDsNoDataExported will specify the items that are not included in the resolved ticket array.'
+        - name: isCustomProduction
+          in: query
+          type: integer
+          description: Filter by whether productionValue was set manually (1) or is system-derived from subTotal (0)
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -3422,6 +3494,14 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property appointmentIDsNoDataExported will specify the items that are not included in the resolved appointment array.'
+        - name: welcomeChecklistCompletionMin
+          in: query
+          type: integer
+          description: Filter appointments with Welcome Checklist completion >= this value (0-100).
+        - name: welcomeChecklistCompletionMax
+          in: query
+          type: integer
+          description: Filter appointments with Welcome Checklist completion <= this value (0-100).
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -4165,6 +4245,10 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property employeeIDsNoDataExported will specify the items that are not included in the resolved employee array.'
+        - name: dateUpdatedStart
+          in: query
+          type: string
+          description: Include employees updated on or after this datetime. Records with NULL dateUpdated are treated as '1000-01-01 00:00:00' and are included when this filter is set to '1000-01-01 00:00:00'.
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -4737,6 +4821,10 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property serviceTypeIDsNoDataExported will specify the items that are not included in the resolved serviceType array.'
+        - name: templateType
+          in: query
+          type: string
+          description: 'Filter by service type template classification. Accepted values: SERVICE_TYPE, SERVICE_PLAN_TYPE, SERVICE_ROUND_TYPE.'
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -6056,6 +6144,18 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property changelogIDsNoDataExported will specify the items that are not included in the resolved changelog array.'
+        - name: employeeIDs
+          in: query
+          type: integer
+          description: ID of employee who made the change
+        - name: dateChangedStart
+          in: query
+          type: string
+          description: Start of date range for when changes were made
+        - name: dateChangedEnd
+          in: query
+          type: string
+          description: End of date range for when changes were made
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -9808,6 +9908,11 @@ paths:
           type: array
           items:
             type: integer
+        - name: includeConveniencePayment
+          in: query
+          type: int
+          description: Set true to include ConveniencePaymentPlan objects in payment profile results.
+          required: false
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -9829,7 +9934,12 @@ paths:
       produces:
         - application/json
       description: Get paymentProfile data for single ID -- please provide a specific record ID in the URL structure.
-      parameters: []
+      parameters:
+        - name: includeConveniencePayment
+          in: query
+          type: integer
+          description: Set true to include ConveniencePaymentPlan objects in payment profile results.
+          required: false
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -10244,6 +10354,10 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property doorIDsNoDataExported will specify the items that are not included in the resolved door array.'
+        - name: dateUpdated
+          in: query
+          type: string
+          description: Date the door was last updated
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -11323,6 +11437,14 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property additionalContactIDsNoDataExported will specify the items that are not included in the resolved additionalContact array.'
+        - name: dateUpdated
+          in: query
+          type: string
+          description: Date the additional contact was last updated
+        - name: dateCreated
+          in: query
+          type: string
+          description: Date the additional contact was created
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -11756,6 +11878,14 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property customerSourceIDsNoDataExported will specify the items that are not included in the resolved customerSource array.'
+        - name: systemReserved
+          in: query
+          type: integer
+          description: Set as 1 if this source is system-protected and cannot be edited
+        - name: subSourceRequired
+          in: query
+          type: integer
+          description: Set as 1 if a subsource is required when using this source
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -12699,6 +12829,10 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property servicePlanIDsNoDataExported will specify the items that are not included in the resolved servicePlan array.'
+        - name: autoSchedule
+          in: query
+          type: integer
+          description: 'Auto-schedule behavior for forecasted appointments. Values: -1 = Due Date Method, 0 = No autoSchedule, 1 = Next Appointment, >1 = Next X appointments.'
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -13019,6 +13153,32 @@ paths:
           type: string
           description: Date of last invoice for the service plan
           required: false
+        - name: billingCustomSchedule
+          in: query
+          type: object
+          description: 'Array of custom-schedule objects for billing. billingCustomScheduleTemplateID is ignored and billingFrequency is set to -3. Each entry: month (1-12), day (1-31), amount (decimal billing amount). Example: [{"month":6,"day":26,"amount":150.00},{"month":7,"day":12,"amount":75.00}]'
+          required: false
+        - name: dateAdded
+          in: query
+          type: string
+          description: Date this subscription was sold. Defaults to current date/time on create.
+          required: false
+        - name: soldDate
+          in: query
+          type: string
+          description: Alias for dateAdded. Date this subscription was sold.
+          required: false
+        - name: addInitialService
+          in: query
+          type: integer
+          description: When 1, auto-schedules the initial appointment on initialServiceDate using the subscription's scheduling preferences.
+          required: false
+          default: 0
+        - name: initialServiceDate
+          in: query
+          type: string
+          description: Date to schedule the initial appointment on. Required when addInitialService=1.
+          required: false
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -13255,6 +13415,31 @@ paths:
           type: integer
           description: Primary key to the tickets table.
           required: true
+        - name: billingCustomSchedule
+          in: query
+          type: object
+          description: 'Array of custom-schedule objects for billing. billingCustomScheduleTemplateID is ignored and billingFrequency is set to -3. Each entry: month (1-12), day (1-31), amount (decimal billing amount). Example: [{"month":6,"day":26,"amount":150.00},{"month":7,"day":12,"amount":75.00}]'
+          required: false
+        - name: dateAdded
+          in: query
+          type: string
+          description: Date this subscription was sold. Defaults to current date/time on create.
+          required: false
+        - name: soldDate
+          in: query
+          type: string
+          description: Alias for dateAdded. Date this subscription was sold.
+          required: false
+        - name: initialCharge
+          in: query
+          type: number
+          description: Amount to set on the initial service ticket template.
+          required: false
+        - name: onHold
+          in: query
+          type: integer
+          description: Set to 1 to place the subscription on hold, 0 to remove the hold.
+          required: false
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -13518,6 +13703,10 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property servicePlanRoundIDsNoDataExported will specify the items that are not included in the resolved servicePlanRound array.'
+        - name: autoSchedule
+          in: query
+          type: integer
+          description: 'Auto-schedule behavior for forecasted appointments. Values: -1 = Due Date Method, 0 = No autoSchedule, 1 = Next Appointment, >1 = Next X appointments.'
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -13707,6 +13896,18 @@ paths:
           in: query
           type: integer
           description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property compassCustomerIDsNoDataExported will specify the items that are not included in the resolved compassCustomer array.'
+        - name: 0
+          in: query
+          type: o
+          description: ''
+        - name: 1
+          in: query
+          type: c
+          description: ''
+        - name: 2
+          in: query
+          type: d
+          description: ''
       security:
         - authenticationToken: []
         - authenticationKey: []
@@ -15117,6 +15318,1101 @@ paths:
       tags:
         - license
       x-fr-write: true
+  /appointment/reschedule:
+    post:
+      summary: reschedule
+      operationId: appointmentReschedule
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Reschedule an existing appointment to a new spot/time. Creates a new appointment and marks the old one as rescheduled (status -2).
+      parameters:
+        - name: appointmentID
+          in: query
+          type: integer
+          description: appointmentID to reschedule
+          required: true
+        - name: spotID
+          in: query
+          type: integer
+          description: spotID for the new appointment
+          required: true
+        - name: subscriptionID
+          in: query
+          type: integer
+          description: subscriptionID for the new appointment. Defaults to the original appointment value.
+          required: false
+        - name: type
+          in: query
+          type: integer
+          description: Service type ID (typeID) for the appointment. Defaults to the original appointment value.
+          required: false
+        - name: start
+          in: query
+          type: string
+          description: Start Time Window. Defaults to the original appointment value.
+          required: false
+        - name: end
+          in: query
+          type: string
+          description: End Time Window. Defaults to the original appointment value.
+          required: false
+        - name: duration
+          in: query
+          type: integer
+          description: Number of minutes this appointment should last. Defaults to the original appointment value.
+          required: false
+        - name: employeeID
+          in: query
+          type: integer
+          description: employeeID to whom this appointment belongs. Defaults to the original appointment value.
+          required: false
+        - name: notes
+          in: query
+          type: string
+          description: Appointment Notes. Defaults to the original appointment value.
+          required: false
+          default: ''
+        - name: assignedTech
+          in: query
+          type: integer
+          description: employeeID of the technician assigned to this appointment. Defaults to the original appointment value.
+          required: false
+        - name: callAhead
+          in: query
+          type: integer
+          description: Number of minutes ahead of the appointment start time to call. Defaults to the original appointment value.
+          required: false
+        - name: doInterior
+          in: query
+          type: integer
+          description: 0 - unspecified, 1 - Exterior only, 2 - Interior Needed. Defaults to the original appointment value.
+          required: false
+        - name: rescheduleReasonID
+          in: query
+          type: integer
+          description: ID of the reschedule reason from the appointmentRescheduleReasons table
+          required: false
+        - name: rescheduleReasonNotes
+          in: query
+          type: string
+          description: Free text notes for the reschedule reason
+          required: false
+          default: ''
+        - name: bypassLockedRoute
+          in: query
+          type: integer
+          description: Ignore locked route setting and schedule anyways
+          required: false
+          default: 0
+        - name: bypassSchedulePermission
+          in: query
+          type: integer
+          description: Ignore api can schedule on route and schedule anyways.
+          required: false
+          default: 0
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Return the ID of the newly created (rescheduled) appointment.
+          schema:
+            $ref: '#/definitions/appointmentRescheduleResponse'
+      tags:
+        - appointment
+      x-fr-write: true
+  /additionalContact/update:
+    post:
+      summary: update
+      operationId: additionalContactUpdate
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Update an existing additional contact
+      parameters:
+        - name: additionalContactID
+          in: query
+          type: integer
+          description: Primary key of additional contact to update
+          required: true
+        - name: fname
+          in: query
+          type: string
+          description: First name
+          required: false
+        - name: lname
+          in: query
+          type: string
+          description: Last name
+          required: false
+        - name: address
+          in: query
+          type: string
+          description: Address string
+          required: false
+        - name: city
+          in: query
+          type: string
+          description: City string
+          required: false
+        - name: state
+          in: query
+          type: string
+          description: 2 letter state code
+          required: false
+        - name: zip
+          in: query
+          type: string
+          description: Zip code
+          required: false
+        - name: phone
+          in: query
+          type: string
+          description: ''
+          required: false
+        - name: phone2
+          in: query
+          type: string
+          description: ''
+          required: false
+        - name: phoneExt
+          in: query
+          type: string
+          description: ''
+          required: false
+        - name: phone2Ext
+          in: query
+          type: string
+          description: ''
+          required: false
+        - name: smsReminders
+          in: query
+          type: integer
+          description: ''
+          required: false
+        - name: phoneReminders
+          in: query
+          type: integer
+          description: ''
+          required: false
+        - name: emailReminders
+          in: query
+          type: integer
+          description: ''
+          required: false
+        - name: companyName
+          in: query
+          type: string
+          description: ''
+          required: false
+        - name: email
+          in: query
+          type: string
+          description: email
+          required: false
+        - name: contactType
+          in: query
+          type: string
+          description: 'contact type: SERVICE, BILLING, SERVICE_BILLING, BUSINESS, TERMITE'
+          required: false
+        - name: additionalContactTypeID
+          in: query
+          type: integer
+          description: ''
+          required: false
+        - name: businessContactID
+          in: query
+          type: integer
+          description: business contact ID
+          required: false
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: additionalContactID
+          schema:
+            $ref: '#/definitions/additionalContactUpdateResponse'
+      tags:
+        - additionalContact
+      x-fr-write: true
+  /bundleSubscription/search:
+    post:
+      summary: search
+      operationId: bundleSubscriptionSearch
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: |-
+        Provide a set of parameters which will return a list of ids. There is no limit to the number of IDs this will return. You can then supply these ids to the `get` endpoint in order to retrieve bulk data. Every parameter available supports a simple value OR a powerful query object that gives you access to all basic comparators. 
+
+        Example: dateAdded={"operator":">","value":"2016-01-01"}
+
+        Example: dateAdded={"operator\":\"BETWEEN\",\"value\":[\"2016-05-12\",\"2016-05-13\"]}
+
+        Available operators: >, <, >=, <=, =, !=, IN, BETWEEN, LIKE, STARTSWITH, ENDSWITH, CONTAINS.
+
+        Each of the search endpoints allows for an optional parameter 'includeData'. When sent, the API will additionally send the resolved objects for the first 1000 IDs. Keep in mind when using 'includeData' that if there are more than 1000 items an additional property '{entity}IDsNoDataExported' will specify the items that are not included in the resolved data array.
+      parameters:
+        - name: officeIDs
+          in: query
+          type: integer
+          description: ''
+        - name: bundleSubscriptionIDs
+          in: query
+          type: integer
+          description: Unique identifier for this Bundle Subscription
+        - name: serviceBundleTemplateIDs
+          in: query
+          type: integer
+          description: Template ID for the bundle
+        - name: subscriptionIDs
+          in: query
+          type: integer
+          description: Subscription ID associated with the bundle
+        - name: parentBundleIDs
+          in: query
+          type: integer
+          description: Parent bundle ID (null for root bundles)
+        - name: customerIDs
+          in: query
+          type: integer
+          description: Customer who owns the bundle subscription
+        - name: isBundleBilling
+          in: query
+          type: integer
+          description: Bundle billing enabled (0 or 1)
+        - name: dateCreated
+          in: query
+          type: string
+          description: Date this bundle was created
+        - name: dateCreatedStart
+          in: query
+          type: string
+          description: ''
+        - name: dateCreatedEnd
+          in: query
+          type: string
+          description: ''
+        - name: dateUpdated
+          in: query
+          type: string
+          description: Date this bundle was last updated
+        - name: dateUpdatedStart
+          in: query
+          type: string
+          description: ''
+        - name: dateUpdatedEnd
+          in: query
+          type: string
+          description: ''
+        - name: includeData
+          in: query
+          type: integer
+          description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property bundleSubscriptionIDsNoDataExported will specify the items that are not included in the resolved bundleSubscription array.'
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Search bundleSubscription Response returns an array of bundleSubscriptionIDs
+          schema:
+            $ref: '#/definitions/bundleSubscriptionSearchResponse'
+      tags:
+        - bundleSubscription
+  /bundleSubscription/get:
+    post:
+      summary: getBulk
+      operationId: bundleSubscriptionGetBulk
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Get Bulk data for bundleSubscription. Accepts an array of bundleSubscriptionIDs. Returns a max of 1000 records.
+      parameters:
+        - name: bundleSubscriptionIDs
+          in: query
+          type: array
+          items:
+            type: integer
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: GetBulk Response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/bundleSubscription'
+      tags:
+        - bundleSubscription
+  /bundleSubscription/[id]:
+    post:
+      summary: getSingle
+      operationId: bundleSubscriptionGetID
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Get bundleSubscription data for single ID -- please provide a specific record ID in the URL structure.
+      parameters: []
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: GetID Response
+          schema:
+            $ref: '#/definitions/bundleSubscription'
+      tags:
+        - bundleSubscription
+  /bundleSubscription/create:
+    post:
+      summary: create
+      operationId: bundleSubscriptionCreate
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Create a bundle subscription linking a subscription to a bundle template
+      parameters:
+        - name: subscriptionID
+          in: query
+          type: integer
+          description: Subscription ID to associate with the bundle
+          required: true
+        - name: serviceBundleTemplateID
+          in: query
+          type: integer
+          description: Template ID for the bundle
+          required: true
+        - name: parentBundleID
+          in: query
+          type: integer
+          description: Parent bundle ID (null for root bundles)
+          required: false
+        - name: isBundleBilling
+          in: query
+          type: integer
+          description: Bundle billing enabled (0 or 1)
+          required: false
+          default: 0
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: bundleSubscriptionID
+          schema:
+            $ref: '#/definitions/bundleSubscriptionCreateResponse'
+      tags:
+        - bundleSubscription
+      x-fr-write: true
+  /bundleSubscription/update:
+    post:
+      summary: update
+      operationId: bundleSubscriptionUpdate
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Update a bundle subscription
+      parameters:
+        - name: bundleSubscriptionID
+          in: query
+          type: integer
+          description: Primary key to the bundle subscriptions table
+          required: true
+        - name: serviceBundleTemplateID
+          in: query
+          type: integer
+          description: Template ID for the bundle
+          required: false
+        - name: parentBundleID
+          in: query
+          type: integer
+          description: Parent bundle ID (null for root bundles, 0 to clear)
+          required: false
+        - name: isBundleBilling
+          in: query
+          type: integer
+          description: Bundle billing enabled (0 or 1)
+          required: false
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Returns the ID of the updated entity.
+          schema:
+            $ref: '#/definitions/bundleSubscriptionUpdateResponse'
+      tags:
+        - bundleSubscription
+      x-fr-write: true
+  /bundleSubscription/delete:
+    post:
+      summary: delete
+      operationId: bundleSubscriptionDelete
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Delete a bundle subscription
+      parameters:
+        - name: bundleSubscriptionID
+          in: query
+          type: integer
+          description: Primary key to bundle subscriptions table.
+          required: true
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Success status of the request.
+          schema:
+            $ref: '#/definitions/bundleSubscriptionDeleteResponse'
+      tags:
+        - bundleSubscription
+      x-fr-write: true
+  /condition/search:
+    post:
+      summary: search
+      operationId: conditionSearch
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: |-
+        Provide a set of parameters which will return a list of ids. There is no limit to the number of IDs this will return. You can then supply these ids to the `get` endpoint in order to retrieve bulk data. Every parameter available supports a simple value OR a powerful query object that gives you access to all basic comparators. 
+
+        Example: dateAdded={"operator":">","value":"2016-01-01"}
+
+        Example: dateAdded={"operator\":\"BETWEEN\",\"value\":[\"2016-05-12\",\"2016-05-13\"]}
+
+        Available operators: >, <, >=, <=, =, !=, IN, BETWEEN, LIKE, STARTSWITH, ENDSWITH, CONTAINS.
+
+        Each of the search endpoints allows for an optional parameter 'includeData'. When sent, the API will additionally send the resolved objects for the first 1000 IDs. Keep in mind when using 'includeData' that if there are more than 1000 items an additional property '{entity}IDsNoDataExported' will specify the items that are not included in the resolved data array.
+      parameters:
+        - name: officeIDs
+          in: query
+          type: integer
+          description: Filter by office (via customer)
+        - name: conditionIDs
+          in: query
+          type: integer
+          description: Unique identifier for the condition
+        - name: customerIDs
+          in: query
+          type: integer
+          description: Customer who owns this condition
+        - name: structureIDs
+          in: query
+          type: integer
+          description: Structure where condition was found
+        - name: conditionTypeIDs
+          in: query
+          type: integer
+          description: Type of condition
+        - name: resolved
+          in: query
+          type: integer
+          description: 0=Open, 1=Resolved
+          default:
+            - 0
+            - 1
+        - name: severity
+          in: query
+          type: integer
+          description: 'Severity: 0=Low, 1=Medium, 2=High'
+        - name: responsibleParty
+          in: query
+          type: integer
+          description: 0=Customer, 1=Company, -1=None
+        - name: dateFoundStart
+          in: query
+          type: string
+          description: Date found range start
+        - name: dateFoundEnd
+          in: query
+          type: string
+          description: Date found range end
+        - name: dateResolvedStart
+          in: query
+          type: string
+          description: Date resolved range start
+        - name: dateResolvedEnd
+          in: query
+          type: string
+          description: Date resolved range end
+        - name: appointmentAdded
+          in: query
+          type: integer
+          description: Appointment when condition was added
+        - name: includeData
+          in: query
+          type: integer
+          description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property conditionIDsNoDataExported will specify the items that are not included in the resolved condition array.'
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Search condition Response returns an array of conditionIDs
+          schema:
+            $ref: '#/definitions/conditionSearchResponse'
+      tags:
+        - condition
+  /condition/get:
+    post:
+      summary: getBulk
+      operationId: conditionGetBulk
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Get Bulk data for condition. Accepts an array of conditionIDs. Returns a max of 1000 records.
+      parameters:
+        - name: conditionIDs
+          in: query
+          type: array
+          items:
+            type: integer
+        - name: includeRecommendedServices
+          in: query
+          type: int
+          description: Send as 1 to include recommended services for each condition.
+          required: false
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: GetBulk Response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/condition'
+      tags:
+        - condition
+  /condition/[id]:
+    post:
+      summary: getSingle
+      operationId: conditionGetID
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Get condition data for single ID -- please provide a specific record ID in the URL structure.
+      parameters:
+        - name: includeRecommendedServices
+          in: query
+          type: integer
+          description: Send as 1 to include recommended services for each condition.
+          required: false
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: GetID Response
+          schema:
+            $ref: '#/definitions/condition'
+      tags:
+        - condition
+  /condition/create:
+    post:
+      summary: create
+      operationId: conditionCreate
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Create a new condition
+      parameters:
+        - name: customerID
+          in: query
+          type: integer
+          description: Customer ID the condition belongs to
+          required: true
+        - name: conditionTypeID
+          in: query
+          type: integer
+          description: Type of condition
+          required: false
+          default: 1
+        - name: description
+          in: query
+          type: string
+          description: Description of the condition
+          required: true
+        - name: structureID
+          in: query
+          type: integer
+          description: Structure where condition was found
+          required: false
+        - name: locationID
+          in: query
+          type: integer
+          description: Location where condition was found
+          required: false
+        - name: severity
+          in: query
+          type: integer
+          description: 'Severity: 0=Low, 1=Medium, 2=High'
+          required: false
+          default: 0
+        - name: recommendation
+          in: query
+          type: string
+          description: Recommended action
+          required: false
+          default: ''
+        - name: responsibleParty
+          in: query
+          type: integer
+          description: 0=Customer, 1=Company, -1=None
+          required: false
+          default: 0
+        - name: appointmentAdded
+          in: query
+          type: integer
+          description: Appointment ID when condition was found.
+          required: true
+        - name: details
+          in: query
+          type: string
+          description: Additional details
+          required: false
+          default: ''
+        - name: correctiveAction
+          in: query
+          type: string
+          description: Actual action taken (for resolved conditions)
+          required: false
+          default: ''
+        - name: note
+          in: query
+          type: string
+          description: Internal note
+          required: false
+          default: ''
+        - name: conditionTemplateID
+          in: query
+          type: integer
+          description: Condition template ID. When provided, pre-fills conditionTypeID, description, severity, recommendation, and responsibleParty from the template. Explicit params override template values.
+          required: false
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: conditionID
+          schema:
+            $ref: '#/definitions/conditionCreateResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /condition/update:
+    post:
+      summary: update
+      operationId: conditionUpdate
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Update an existing condition
+      parameters:
+        - name: conditionTypeID
+          in: query
+          type: integer
+          description: Type of condition
+          required: false
+        - name: description
+          in: query
+          type: string
+          description: Description of the condition
+          required: false
+        - name: structureID
+          in: query
+          type: integer
+          description: Structure where condition was found
+          required: false
+        - name: locationID
+          in: query
+          type: integer
+          description: Location where condition was found
+          required: false
+        - name: severity
+          in: query
+          type: integer
+          description: 'Severity: 0=Low, 1=Medium, 2=High'
+          required: false
+        - name: recommendation
+          in: query
+          type: string
+          description: Recommended action
+          required: false
+        - name: responsibleParty
+          in: query
+          type: integer
+          description: 0=Customer, 1=Company, -1=None
+          required: false
+        - name: details
+          in: query
+          type: string
+          description: Additional details
+          required: false
+        - name: correctiveAction
+          in: query
+          type: string
+          description: Actual action taken (for resolved conditions)
+          required: false
+        - name: note
+          in: query
+          type: string
+          description: Internal note
+          required: false
+        - name: conditionID
+          in: query
+          type: integer
+          description: Primary key of the condition to update
+          required: true
+        - name: resolved
+          in: query
+          type: integer
+          description: 0=Open, 1=Resolved. Setting to 1 auto-sets dateResolved; setting to 0 clears resolution data.
+          required: false
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Returns the ID of the updated entity.
+          schema:
+            $ref: '#/definitions/conditionUpdateResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /condition/delete:
+    post:
+      summary: delete
+      operationId: conditionDelete
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Delete a condition
+      parameters:
+        - name: conditionID
+          in: query
+          type: integer
+          description: Primary key of the condition to delete
+          required: true
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Success status of the request.
+          schema:
+            $ref: '#/definitions/conditionDeleteResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /condition/getRecommendedServices:
+    post:
+      summary: getRecommendedServices
+      operationId: conditionGetRecommendedServices
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Get recommended services for a condition
+      parameters:
+        - name: conditionID
+          in: query
+          type: integer
+          description: Primary key of the condition
+          required: true
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Array of recommended services for the condition.
+          schema:
+            $ref: '#/definitions/conditionGetRecommendedServicesResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /condition/createRecommendedService:
+    post:
+      summary: createRecommendedService
+      operationId: conditionCreateRecommendedService
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Add a recommended service to a condition
+      parameters:
+        - name: conditionID
+          in: query
+          type: integer
+          description: Primary key of the condition
+          required: true
+        - name: serviceID
+          in: query
+          type: integer
+          description: Foreign key to serviceTypes table
+          required: true
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Returns true on success.
+          schema:
+            $ref: '#/definitions/conditionCreateRecommendedServiceResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /condition/deleteRecommendedService:
+    post:
+      summary: deleteRecommendedService
+      operationId: conditionDeleteRecommendedService
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Remove a recommended service from a condition
+      parameters:
+        - name: conditionID
+          in: query
+          type: integer
+          description: Primary key of the condition
+          required: true
+        - name: conditionServiceID
+          in: query
+          type: integer
+          description: Primary key of the condition service to remove
+          required: true
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Success status of the request.
+          schema:
+            $ref: '#/definitions/conditionDeleteRecommendedServiceResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /condition/createImage:
+    post:
+      summary: createImage
+      operationId: conditionCreateImage
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Upload an image for a condition via multipart/form-data with parameter name uploadFile
+      parameters:
+        - name: conditionID
+          in: query
+          type: integer
+          description: Primary key of the condition
+          required: true
+        - name: description
+          in: query
+          type: string
+          description: Description of the image
+          required: false
+          default: ''
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Object with conditionImageID and imageLink.
+          schema:
+            $ref: '#/definitions/conditionCreateImageResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /condition/createEncodedImage:
+    post:
+      summary: createEncodedImage
+      operationId: conditionCreateEncodedImage
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Upload an image for a condition using a Base64-encoded string
+      parameters:
+        - name: conditionID
+          in: query
+          type: integer
+          description: Primary key of the condition
+          required: true
+        - name: encodedFile
+          in: query
+          type: string
+          description: Base64-encoded image data
+          required: true
+        - name: filename
+          in: query
+          type: string
+          description: Filename including extension (e.g. photo.jpg)
+          required: true
+        - name: description
+          in: query
+          type: string
+          description: Description of the image
+          required: false
+          default: ''
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Object with conditionImageID and imageLink.
+          schema:
+            $ref: '#/definitions/conditionCreateEncodedImageResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /condition/unresolve:
+    post:
+      summary: unresolve
+      operationId: conditionUnresolve
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Unresolve a previously resolved condition
+      parameters:
+        - name: conditionID
+          in: query
+          type: integer
+          description: Primary key of the condition to unresolve
+          required: true
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Success status of the request.
+          schema:
+            $ref: '#/definitions/conditionUnresolveResponse'
+      tags:
+        - condition
+      x-fr-write: true
+  /welcomeChecklist/search:
+    post:
+      summary: search
+      operationId: welcomeChecklistSearch
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: |-
+        Provide a set of parameters which will return a list of ids. There is no limit to the number of IDs this will return. You can then supply these ids to the `get` endpoint in order to retrieve bulk data. Every parameter available supports a simple value OR a powerful query object that gives you access to all basic comparators. 
+
+        Example: dateAdded={"operator":">","value":"2016-01-01"}
+
+        Example: dateAdded={"operator\":\"BETWEEN\",\"value\":[\"2016-05-12\",\"2016-05-13\"]}
+
+        Available operators: >, <, >=, <=, =, !=, IN, BETWEEN, LIKE, STARTSWITH, ENDSWITH, CONTAINS.
+
+        Each of the search endpoints allows for an optional parameter 'includeData'. When sent, the API will additionally send the resolved objects for the first 1000 IDs. Keep in mind when using 'includeData' that if there are more than 1000 items an additional property '{entity}IDsNoDataExported' will specify the items that are not included in the resolved data array.
+      parameters:
+        - name: officeIDs
+          in: query
+          type: integer
+          description: Filter by office ID
+        - name: appointmentIDs
+          in: query
+          type: integer
+          description: Filter by appointment ID (primary key)
+        - name: customerIDs
+          in: query
+          type: integer
+          description: Filter by customer ID
+        - name: dateUpdatedStart
+          in: query
+          type: string
+          description: Inclusive lower bound on dateUpdated (records with NULL dateUpdated are excluded)
+        - name: dateUpdatedEnd
+          in: query
+          type: string
+          description: Inclusive upper bound on dateUpdated (records with NULL dateUpdated are excluded)
+        - name: includeData
+          in: query
+          type: integer
+          description: '{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property welcomeChecklistIDsNoDataExported will specify the items that are not included in the resolved welcomeChecklist array.'
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: Search welcomeChecklist Response returns an array of appointmentIDs
+          schema:
+            $ref: '#/definitions/welcomeChecklistSearchResponse'
+      tags:
+        - welcomeChecklist
+  /welcomeChecklist/get:
+    post:
+      summary: getBulk
+      operationId: welcomeChecklistGetBulk
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Get Bulk data for welcomeChecklist. Accepts an array of appointmentIDs. Returns a max of 1000 records.
+      parameters:
+        - name: appointmentIDs
+          in: query
+          type: array
+          items:
+            type: integer
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: GetBulk Response
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/welcomeChecklist'
+      tags:
+        - welcomeChecklist
+  /welcomeChecklist/[id]:
+    post:
+      summary: getSingle
+      operationId: welcomeChecklistGetID
+      consumes:
+        - application/x-www-form-urlencoded
+      produces:
+        - application/json
+      description: Get welcomeChecklist data for single ID -- please provide a specific record ID in the URL structure.
+      parameters: []
+      security:
+        - authenticationToken: []
+        - authenticationKey: []
+      responses:
+        default:
+          description: GetID Response
+          schema:
+            $ref: '#/definitions/welcomeChecklist'
+      tags:
+        - welcomeChecklist
 definitions:
   subscription:
     type: string
@@ -20297,6 +21593,333 @@ definitions:
     type: integer
   licenseCreateResponse:
     type: integer
+  appointmentRescheduleResponse:
+    type: integer
+  additionalContactUpdateResponse:
+    type: integer
+  bundleSubscription:
+    type: object
+    properties:
+      bundleSubscriptionID:
+        description: Unique ID for the bundle subscription
+        type: integer
+      serviceBundleTemplateID:
+        description: Template ID for the bundle
+        type: integer
+      subscriptionID:
+        description: Subscription ID associated with the bundle
+        type: integer
+      parentBundleID:
+        description: Parent bundle ID (null for root bundles)
+        type: integer
+      isBundleBilling:
+        description: Bundle billing enabled (0 or 1)
+        type: integer
+      dateUpdated:
+        description: Date this bundle subscription was last updated
+        type: string
+      updatedBy:
+        description: Employee ID who last updated this bundle subscription
+        type: integer
+      dateCreated:
+        description: Date this bundle subscription was created
+        type: string
+      createdBy:
+        description: Employee ID who created this bundle subscription
+        type: integer
+      templateName:
+        description: Name of the bundle template
+        type: string
+      isRemoveServicesEnabled:
+        description: Whether removing services is enabled for this bundle
+        type: integer
+      isAdditionalServicesEnabled:
+        description: Whether additional services are enabled for this bundle
+        type: integer
+      isSignatureRequired:
+        description: Whether signature is required for this bundle
+        type: integer
+      customerID:
+        description: Customer ID who owns this bundle subscription
+        type: integer
+      officeID:
+        description: Office ID this bundle subscription belongs to
+        type: integer
+      subscriptionActive:
+        description: Active status of the underlying subscription
+        type: integer
+  bundleSubscriptionSearchResponse:
+    type: object
+    description: The bundleSubscriptionIDs object contains an array of IDs matching the search parameters.
+    properties:
+      bundleSubscriptionIDs:
+        type: array
+        items:
+          type: integer
+          description: unique ID for bundleSubscription
+  bundleSubscriptionCreateResponse:
+    type: integer
+  bundleSubscriptionUpdateResponse:
+    type: integer
+  bundleSubscriptionDeleteResponse:
+    type: boolean
+  condition:
+    type: object
+    properties:
+      conditionID:
+        description: Unique identifier for the condition
+        type: integer
+      structureID:
+        description: Structure ID where the condition was found
+        type: integer
+      locationID:
+        description: Location ID where the condition was found
+        type: integer
+      conditionTypeID:
+        description: Type of condition
+        type: integer
+      conditionType:
+        description: Friendly name of the condition type
+        type: string
+      customerID:
+        description: Customer ID the condition belongs to
+        type: integer
+      appointmentAdded:
+        description: Appointment ID when the condition was added
+        type: integer
+      appointmentResolved:
+        description: Appointment ID when the condition was resolved
+        type: integer
+      description:
+        description: Description of the condition
+        type: string
+      details:
+        description: Additional details
+        type: string
+      severity:
+        description: 'Severity: 0=Low, 1=Medium, 2=High'
+        type: integer
+      recommendation:
+        description: Recommended action
+        type: string
+      correctiveAction:
+        description: Actual action taken leading to resolution
+        type: string
+      responsibleParty:
+        description: 0=Customer, 1=Company, -1=None
+        type: integer
+      note:
+        description: Internal note
+        type: string
+      dateFound:
+        description: Date the condition was found
+        type: string
+      dateResolved:
+        description: Date the condition was resolved
+        type: string
+      resolved:
+        description: 1=Resolved, 0=Open
+        type: integer
+      createdBy:
+        description: Employee ID who created the condition
+        type: integer
+      dateCreated:
+        description: Date the condition was created
+        type: string
+      lastUpdated:
+        description: Date the condition was last updated
+        type: string
+      updatedBy:
+        description: Employee ID who last updated the condition
+        type: integer
+      structure:
+        description: Structure description
+        type: string
+  conditionSearchResponse:
+    type: object
+    description: The conditionIDs object contains an array of IDs matching the search parameters.
+    properties:
+      conditionIDs:
+        type: array
+        items:
+          type: integer
+          description: unique ID for condition
+  conditionCreateResponse:
+    type: integer
+  conditionUpdateResponse:
+    type: integer
+  conditionDeleteResponse:
+    type: boolean
+  conditionGetRecommendedServicesResponse:
+    type: array
+    items:
+      type: object
+      properties:
+        conditionServiceID:
+          description: Primary key of the condition service
+          type: integer
+        conditionID:
+          description: Foreign key to conditions table
+          type: integer
+        serviceID:
+          description: Foreign key to serviceTypes table
+          type: integer
+        details:
+          description: Details/recommendation text
+          type: string
+  conditionCreateRecommendedServiceResponse:
+    type: boolean
+  conditionDeleteRecommendedServiceResponse:
+    type: boolean
+  conditionCreateImageResponse:
+    type: object
+    properties:
+      conditionImageID:
+        description: Primary key of the condition image
+        type: integer
+      imageLink:
+        description: URL to the uploaded image
+        type: string
+  conditionCreateEncodedImageResponse:
+    type: object
+    properties:
+      conditionImageID:
+        description: Primary key of the condition image
+        type: integer
+      imageLink:
+        description: URL to the uploaded image
+        type: string
+  conditionUnresolveResponse:
+    type: boolean
+  welcomeChecklist:
+    type: object
+    properties:
+      appointmentID:
+        description: Primary key — links to the appointment
+        type: integer
+      customerID:
+        description: Customer this checklist belongs to
+        type: integer
+      officeID:
+        description: Office this checklist belongs to
+        type: integer
+      employeeID:
+        description: Employee who completed the checklist
+        type: integer
+      completionPercent:
+        description: Percentage of checklist items completed (0-100)
+        type: integer
+      timeCompleted:
+        description: Datetime the checklist reached 100% completion
+        type: string
+      dateUpdated:
+        description: Datetime this record was last modified; NULL for records predating FR-7450
+        type: string
+      notes:
+        description: Internal notes
+        type: string
+      notesOnInvoice:
+        description: Notes printed on the invoice
+        type: string
+      spokeWith:
+        description: Name of the person spoken with during the checklist
+        type: string
+      hasBabies:
+        description: 'Customer environment: babies present'
+        type: integer
+      hasPets:
+        description: 'Customer environment: pets present'
+        type: integer
+      hasGarden:
+        description: 'Customer environment: garden present'
+        type: integer
+      hasBirds:
+        description: 'Customer environment: birds present'
+        type: integer
+      hasFish:
+        description: 'Customer environment: fish present'
+        type: integer
+      hasPond:
+        description: 'Customer environment: pond present'
+        type: integer
+      followAlong:
+        description: 'Checkbox: customer followed along during service'
+        type: integer
+      checkName:
+        description: 'Checkbox: customer name verified'
+        type: integer
+      checkAddress:
+        description: 'Checkbox: service address verified'
+        type: integer
+      checkEmail:
+        description: 'Checkbox: email address verified'
+        type: integer
+      checkPhone:
+        description: 'Checkbox: phone number verified'
+        type: integer
+      confirmInitialPrice:
+        description: 'Checkbox: initial service price confirmed with customer'
+        type: integer
+      reviewServiceSchedule:
+        description: 'Checkbox: service schedule reviewed with customer'
+        type: integer
+      confirmFollowUp:
+        description: 'Checkbox: follow-up appointment confirmed'
+        type: integer
+      explainIncreasedActivity:
+        description: 'Checkbox: increased pest activity after treatment explained'
+        type: integer
+      reviewPaymentOptions:
+        description: 'Checkbox: payment options reviewed'
+        type: integer
+      explainNormalPrice:
+        description: 'Checkbox: normal recurring price explained'
+        type: integer
+      areMoving:
+        description: 'Checkbox: customer indicated they are moving'
+        type: integer
+      explain30DayNotice:
+        description: 'Checkbox: 30-day cancellation notice explained'
+        type: integer
+      explainExterior:
+        description: 'Checkbox: exterior-only service explained'
+        type: integer
+      explainReferral:
+        description: 'Checkbox: referral program explained'
+        type: integer
+      customerComments:
+        description: 'Checkbox: customer comments recorded'
+        type: integer
+      thankCustomer:
+        description: 'Checkbox: customer thanked'
+        type: integer
+      confirmAgreement:
+        description: 'Checkbox: service agreement confirmed'
+        type: integer
+      reviewCalendar:
+        description: 'Checkbox: upcoming service calendar reviewed'
+        type: integer
+      specialNotes:
+        description: 'Checkbox: special notes recorded'
+        type: integer
+      scheduleTermite:
+        description: 'Checkbox: termite inspection scheduled'
+        type: integer
+      confirmSqft:
+        description: 'Checkbox: square footage confirmed'
+        type: integer
+      ongoingService:
+        description: 'Checkbox: ongoing service agreement confirmed'
+        type: integer
+  welcomeChecklistSearchResponse:
+    type: object
+    description: The welcomeChecklistIDs object contains an array of IDs matching the search parameters.
+    properties:
+      welcomeChecklistIDs:
+        type: array
+        items:
+          type: integer
+          description: unique ID for welcomeChecklist
 securityDefinitions:
   authenticationToken:
     name: authenticationToken
@@ -20315,6 +21938,7 @@ tags:
   - name: appointmentCancellationReason
   - name: appointmentReminder
   - name: appointmentRescheduleReason
+  - name: bundleSubscription
   - name: cancellationReason
   - name: changelog
   - name: chargeback
@@ -20322,6 +21946,7 @@ tags:
   - name: chemicalUse
   - name: collectionStage
   - name: compassCustomer
+  - name: condition
   - name: contactType
   - name: contract
   - name: customer
@@ -20369,6 +21994,7 @@ tags:
   - name: timeClock
   - name: timeClockCategory
   - name: unit
+  - name: welcomeChecklist
 x-tagGroups:
   - name: Customers & Accounts
     tags:
@@ -20381,9 +22007,11 @@ x-tagGroups:
       - knock
       - location
       - unit
+      - welcomeChecklist
   - name: Subscriptions & Services
     tags:
       - applicationMethod
+      - bundleSubscription
       - contract
       - product
       - servicePlan
@@ -20420,6 +22048,7 @@ x-tagGroups:
     tags:
       - chemical
       - chemicalUse
+      - condition
       - diagram
       - employee
       - employeeLocation
