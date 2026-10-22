@@ -5,7 +5,9 @@
   "description": "FieldRoutes OpenAPI docs — viewer + upstream sync",
   "scripts": {
     "sync": "node sync-spec.js",
-    "summaries": "cd fieldroutes && node generate-summaries.js"
+    "summaries": "cd fieldroutes && node generate-summaries.js",
+    "check": "node check-leaks.js",
+    "test": "node --test"
   },
   "dependencies": {
     "js-yaml": "^4.1.0"

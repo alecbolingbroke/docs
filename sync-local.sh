@@ -8,6 +8,7 @@
 #   FR_HOST, FR_AUTH_KEY, FR_AUTH_TOKEN   tenant credentials for /api/documentation/swagger
 #   GITHUB_TOKEN                          fine-grained PAT, this repo only, Contents + Pull requests: write
 #   SLACK_CHANNEL                         optional: where failures are posted
+# The private blocklist for check-leaks.js sits beside it (~/.config/fieldroutes-docs/denylist).
 # SLACK_BOT_TOKEN is read from $SLACK_ENV (an env file) when set, so it isn't copied around.
 # Secrets stay unexported: they reach only the command that needs them, never argv or npm.
 set -Eeuo pipefail
@@ -49,6 +50,8 @@ git clone -q --depth 1 "https://github.com/$REPO.git" "$work"
 cd "$work"
 npm ci --silent --ignore-scripts
 FR_HOST="$FR_HOST" FR_AUTH_KEY="$FR_AUTH_KEY" FR_AUTH_TOKEN="$FR_AUTH_TOKEN" node sync-spec.js
+# Scans the whole tree, so a leak merged into main some other way is caught here too.
+node check-leaks.js
 
 if [ -z "$(git status --porcelain fieldroutes)" ]; then echo "✅ no changes upstream"; exit 0; fi
 

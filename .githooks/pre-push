@@ -1,0 +1,8 @@
+#!/bin/sh
+# Refuses a push that would publish a blocklisted term (see check-leaks.js).
+# Enable once per clone: git config core.hooksPath .githooks
+zero=0000000000000000000000000000000000000000
+while read -r _ local_sha _ _; do
+  [ "$local_sha" = "$zero" ] && continue
+  node "$(git rev-parse --show-toplevel)/check-leaks.js" --rev "$local_sha" || exit 1
+done

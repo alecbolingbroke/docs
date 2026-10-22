@@ -106,6 +106,21 @@ file with `SLACK_BOT_TOKEN` posts failures to Slack. A launchd job on an always-
 installed copy weekly, so re-install it after changing the script. For a one-off run in your
 working copy: `set -a; . ~/.config/fieldroutes-docs/env; set +a; npm run sync`.
 
+## 🔒 Leak check
+
+Everything here is public, so `check-leaks.js` fails if any file contains a term from a **private
+blocklist** kept outside the repo (`~/.config/fieldroutes-docs/denylist`, or `FR_DOCS_DENYLIST`):
+plain lines match whole words, `re:` lines are regexes. A missing list fails closed. It runs:
+
+- in every weekly sync, over the whole tree (so anything merged another way is caught too);
+- before every push, via `.githooks/pre-push` (enable once per clone:
+  `git config core.hooksPath .githooks`);
+- by hand: `npm run check`. Tests: `npm test`.
+
+Contributing a finding: change `corrections.yaml` only, keep it true for every FieldRoutes
+account (no company-specific IDs or names), and open a PR. The next weekly sync regenerates the
+site files from it.
+
 ## Local development
 
 Interactive Swagger UI against the spec:
@@ -138,6 +153,8 @@ source must stay set to **GitHub Actions**.
 | `corrections.yaml` | Fixes + overlay applied on top of the merge; also holds the published overview/glossary |
 | `sync-spec.js` | The weekly sync pipeline |
 | `sync-local.sh` | Local weekly runner: fresh clone → sync → PR |
+| `check-leaks.js` | Private-blocklist scan of everything published (+ `check-leaks.test.js`) |
+| `.githooks/pre-push` | Runs the leak check on every pushed commit |
 | `fieldroutes/index.html` | Multi-format documentation viewer |
 | `fieldroutes/generate-summaries.js` | Standalone summary prettifier |
 
