@@ -53,10 +53,10 @@ deepMerge:
     description: |
       # FieldRoutes API — Community Reference
 
-      A curated, corrected FieldRoutes OpenAPI spec — more complete than the vendor's
-      published docs (it documents ~90 endpoints and many fields FieldRoutes omits),
-      corrected for known documentation errors, and auto-synced from
-      [fieldroutes.dev](https://fieldroutes.dev) every week.
+      A curated, corrected FieldRoutes OpenAPI spec — FieldRoutes' own published spec,
+      corrected for known documentation errors, with tags, write flags and a glossary
+      added, and auto-synced from FieldRoutes every week. The vendor's prose docs live in
+      the [FieldRoutes Knowledge Base](https://knowledgebase.fieldroutes.com/apidocs/fieldroutes-api-overview).
 
       This is an **unofficial** reference maintained independently of FieldRoutes.
       For account-specific or support issues, contact **apisupport@fieldroutes.com**.
@@ -240,7 +240,7 @@ deepMerge:
       straightforward — it's the intended backbone for an MCP server or SDK:
 
       - **`tags`** — every operation is tagged with its entity (`customer`, `spot`, …), and
-        `x-tagGroups` sorts those 62 entities into six sections. Natural tool namespaces.
+        `x-tagGroups` sorts those entities into six sections. Natural tool namespaces.
       - **`x-fr-write: true`** — set on every mutating operation. Use it to gate writes
         behind confirmation, or to expose a read-only tool surface by default.
       - **Machine-readable artifacts** — `fieldroutes-swagger-docs.json` (canonical) and
@@ -253,9 +253,8 @@ deepMerge:
 
       ## Common workflows
 
-      Examples below use the vendor's `apiModule` JS helper (from
-      [fieldroutes.dev/examples](https://fieldroutes.dev/examples), which has the full
-      runnable set); the same shapes apply to any HTTP client.
+      Examples below use the vendor's `apiModule` JS helper, from their original
+      developer site; the same shapes apply to any HTTP client.
 
       **Incremental sync — pull everything changed since your last run**
 
@@ -378,9 +377,8 @@ deepMerge:
         turn a blip into an outage.
 
       **Why does this spec differ from the vendor's?**
-      It's additive: everything FieldRoutes documents is here, plus endpoints and fields
-      that are real and in use but undocumented upstream, plus corrections where the
-      vendor's docs are wrong. See the caveat below.
+      It's additive: everything FieldRoutes documents is here, plus corrections where
+      the vendor's docs are wrong, plus entity tags and write flags. See the caveat below.
 
       **Something looks wrong here.**
       [Open an issue](https://github.com/alecbolingbroke/docs/issues) with

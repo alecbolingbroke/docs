@@ -2,10 +2,11 @@
 /**
  * sync-spec.js — self-sustaining FieldRoutes spec pipeline.
  *
- * Fetch the vendor spec (window.swagger from fieldroutes.dev/resources/swagger.js)
+ * Fetch the vendor spec (POST {FR_HOST}/api/documentation/swagger, authenticated —
+ *    credentials come from the environment and are never written anywhere)
  *  → ADDITIVELY merge it into the canonical spec: add new endpoints / params /
- *    definitions FR documents, but NEVER remove our 94 extra endpoints or richer
- *    params. (FR *changes* to existing fields are NOT auto-applied — only additions;
+ *    definitions FR documents, but NEVER remove anything already documented here.
+ *    (FR *changes* to existing fields are NOT auto-applied — only additions;
  *    corrections.yaml is where we override.)
  *  → apply corrections.yaml (fix known FR doc errors)
  *  → regenerate the published files the site loads:
@@ -17,18 +18,18 @@
  * Note: the FIRST run normalizes the canonical YAML to js-yaml formatting (one big,
  * one-time diff). After that, js-yaml output is deterministic, so weekly PRs are
  * surgical — they show only real FR additions. Requires Node 18+ (global fetch) + js-yaml.
+ *
+ * Needs FR_HOST (https://<tenant>.fieldroutes.com), FR_AUTH_KEY and FR_AUTH_TOKEN, so it
+ * runs locally (sync-local.sh), never in CI on this public repo.
  */
 const fs = require("fs");
 const path = require("path");
-const vm = require("vm");
 const yaml = require("js-yaml");
 
-const SPEC_URL = "https://fieldroutes.dev/resources/swagger.js";
-// The fieldroutes.dev site is a jQuery SPA: every page body lives as a compiled
-// template function inside this one bundle. Rendering them gives us a diffable
-// snapshot of the vendor's prose (limits, FAQ, examples) — see snapshotPages().
-const TEMPLATES_URL = "https://fieldroutes.dev/templates/HEAD";
-const WATCHED_PAGES = ["home", "examples", "faq"];
+// FieldRoutes' prose docs moved to their Knowledge Base (Document360) in 10.6 Amethyst;
+// fieldroutes.dev is frozen (swagger.js last modified 2022). See snapshotPages().
+const KB_URL = "https://knowledgebase.fieldroutes.com/apidocs/";
+const WATCHED_PAGES = ["fieldroutes-api-overview", "api-release-notes", "documentation-swagger"];
 const DOCS = path.join(__dirname, "fieldroutes");
 const PAGES_DIR = path.join(DOCS, "upstream-pages");
 const CANONICAL_YAML = path.join(DOCS, "fieldroutes-swagger-docs.yaml");
@@ -40,16 +41,16 @@ const CORRECTIONS = path.join(__dirname, "corrections.yaml");
 
 const HTTP_METHODS = ["get", "post", "put", "delete", "patch"];
 
-// Entity → section. The API is a flat list of 276 /{entity}/{action} paths with no tags
+// Entity → section. The API is a flat list of /{entity}/{action} paths with no tags
 // at all, so every renderer dumps them into one giant "default" bucket. Grouping by
-// entity, and entities into sections, is what makes 276 endpoints navigable — and it
+// entity, and entities into sections, is what makes hundreds of endpoints navigable — and it
 // doubles as the namespace an MCP server can generate tools from.
 const SECTIONS = [
-  ["Customers & Accounts", ["customer", "customerFlag", "customerSource", "additionalContact", "compassCustomer", "unit", "location", "door", "knock"]],
-  ["Subscriptions & Services", ["subscription", "servicePlan", "servicePlanRound", "serviceType", "contract", "product", "applicationMethod"]],
+  ["Customers & Accounts", ["customer", "customerFlag", "customerSource", "additionalContact", "welcomeChecklist", "compassCustomer", "unit", "location", "door", "knock"]],
+  ["Subscriptions & Services", ["subscription", "bundleSubscription", "servicePlan", "servicePlanRound", "serviceType", "contract", "product", "applicationMethod"]],
   ["Scheduling", ["appointment", "appointmentReminder", "appointmentCancellationReason", "appointmentRescheduleReason", "cancellationReason", "reserviceReason", "route", "routeTemplate", "spot", "group", "onMyWayNotification"]],
   ["Billing & Payments", ["ticket", "ticketItem", "payment", "appliedPayment", "paymentProfile", "paymentPriority", "chargeback", "disbursement", "disbursementItem", "glAccount", "collectionStage"]],
-  ["Field Operations", ["chemical", "chemicalUse", "insect", "employee", "employeeLocation", "team", "skill", "timeClock", "timeClockCategory", "license", "task", "form", "diagram", "review"]],
+  ["Field Operations", ["chemical", "chemicalUse", "insect", "employee", "employeeLocation", "team", "skill", "timeClock", "timeClockCategory", "license", "task", "condition", "form", "diagram", "review"]],
   ["Org & Configuration", ["office", "region", "accessControl", "contactType", "genericFlag", "genericFlagAssignment", "note", "document", "dataLink", "changelog"]],
 ];
 
@@ -57,14 +58,21 @@ const SECTIONS = [
 const READ_ACTIONS = new Set(["search", "get", "getSimple", "summary", "getAddOns", "getInitialAddOns"]);
 
 async function fetchUpstream() {
-  console.log(`⬇️  Fetching ${SPEC_URL}`);
-  const res = await fetch(SPEC_URL);
+  const { FR_HOST, FR_AUTH_KEY, FR_AUTH_TOKEN } = process.env;
+  if (!FR_HOST || !FR_AUTH_KEY || !FR_AUTH_TOKEN) throw new Error("FR_HOST, FR_AUTH_KEY and FR_AUTH_TOKEN must be set");
+  const url = `${FR_HOST.replace(/\/+$/, "")}/api/documentation/swagger`;
+  console.log("⬇️  Fetching the spec from /api/documentation/swagger");
+  const res = await fetch(url, { method: "POST", headers: { authenticationKey: FR_AUTH_KEY, authenticationToken: FR_AUTH_TOKEN } });
   if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-  const js = await res.text();
-  const sandbox = { window: {} };
-  vm.runInNewContext(js, sandbox, { timeout: 10000 });
-  const spec = sandbox.window.swagger;
-  if (!spec || !spec.paths) throw new Error("Fetched bundle had no window.swagger.paths");
+  // Served as text/html, but the body is JSON.
+  const body = await res.text();
+  // upstream.json is committed to a public repo — refuse anything that echoes a credential
+  // or names the tenant (the endpoint returns a generic host today).
+  const tenant = new URL(FR_HOST).hostname.split(".")[0];
+  if (body.includes(FR_AUTH_KEY) || body.includes(FR_AUTH_TOKEN)) throw new Error("Spec response contains a credential; refusing to write it");
+  if (new RegExp(`\\b${tenant}\\.(field|pest)routes\\.com`, "i").test(body)) throw new Error("Spec response names the tenant host; refusing to write it");
+  const spec = JSON.parse(body);
+  if (!spec.paths) throw new Error("Spec response had no paths");
   console.log(`   ${Object.keys(spec.paths).length} upstream paths`);
   return spec;
 }
@@ -143,42 +151,25 @@ function applyTaxonomy(spec) {
 }
 
 /**
- * Snapshot the vendor's narrative pages (/home, /examples, /faq) as plain text so
- * the weekly run PRs when FieldRoutes changes its prose — rate limits, FAQ answers,
- * example workflows. Those live in the SPA's template bundle, not in the OpenAPI
- * spec, so nothing else in this pipeline would notice them drifting.
+ * Snapshot the vendor's API prose pages (overview, release notes, the Swagger download
+ * page) as plain text so the weekly run PRs when FieldRoutes changes them — rate limits,
+ * release notes, behavior changes. None of that lives in the OpenAPI spec, so nothing
+ * else in this pipeline would notice it drifting.
  *
- * Rendering approach: run the bundle in a vm with a stub jQuery (the templates only
- * touch $ inside their teardown <script> drivers, which we strip anyway), call
- * Template.build('page_x'), then reduce the HTML to text. Failures here are
- * non-fatal — a spec sync shouldn't break because the site's markup moved.
+ * The Knowledge Base is server-rendered; each page's content is its single <article>.
+ * Failures here are non-fatal — a spec sync shouldn't break because the site's markup moved.
  */
 async function snapshotPages() {
-  const res = await fetch(TEMPLATES_URL);
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
-  const $ = function () {
-    const chain = { on() {}, off() {}, remove() {}, prev: () => chain, attr() {}, length: 0 };
-    return chain;
-  };
-  $.getScript = () => ({ always() {} });
-  $.cleanData = () => {};
-  const sandbox = { console, $, jQuery: $, setTimeout, localStorage: {}, location: { pathname: "/" } };
-  sandbox.window = sandbox;
-  sandbox.document = {};
-  vm.runInNewContext(await res.text(), sandbox, { timeout: 20000 });
-
-  const Template = sandbox.Template;
-  if (!Template || !Template.templates) throw new Error("Template bundle had no templates");
-
   fs.mkdirSync(PAGES_DIR, { recursive: true });
   const changed = [];
   for (const page of WATCHED_PAGES) {
-    const name = `page_${page}`;
-    if (!Template.templates[name]) {
-      console.warn(`   ⚠️  ${name} no longer exists upstream`);
+    const res = await fetch(KB_URL + page);
+    const article = res.ok && (await res.text()).match(/<article[\s\S]*?<\/article>/);
+    if (!article) {
+      console.warn(`   ⚠️  ${page}: ${res.ok ? "no <article> found" : res.status} — skipped`);
       continue;
     }
-    const text = htmlToText(Template.build(name, {}) || "");
+    const text = htmlToText(article[0]);
     const file = path.join(PAGES_DIR, `${page}.txt`);
     const prev = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
     if (prev !== text) changed.push(page);
@@ -187,17 +178,23 @@ async function snapshotPages() {
   return changed;
 }
 
-// HTML → readable text. Drops the teardown <script> drivers (they carry volatile
-// template ids that would otherwise churn the diff every run) and collapses blank runs.
+// HTML → readable text. Drops <script>/<style> (volatile ids would churn the diff) and
+// collapses blank runs.
 function htmlToText(html) {
-  const entities = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
+  const entities = { amp: "&", lt: "<", gt: ">", quot: '"', nbsp: " " };
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<\/(p|div|section|li|tr|h[1-6]|pre)>/gi, "\n")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<[^>]+>/g, "")
-    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, e) => entities[e])
+    // One pass, so "&amp;#39;" stays "&#39;" instead of being decoded twice.
+    .replace(/&(amp|lt|gt|quot|nbsp|#x[0-9a-f]+|#\d+);/gi, (_, e) => {
+      if (e[0] !== "#") return entities[e.toLowerCase()];
+      const hex = /^#x/i.test(e);
+      const cp = parseInt(e.slice(hex ? 2 : 1), hex ? 16 : 10);
+      return cp <= 0x10ffff ? String.fromCodePoint(cp) : "&" + e + ";";
+    })
     .split("\n")
     .map((l) => l.replace(/\s+$/, ""))
     .join("\n")
@@ -327,7 +324,7 @@ function withSummaries(spec) {
   fs.writeFileSync(SUMMARIES_JSON, JSON.stringify(display, null, 2) + "\n");
   console.log("✅ Regenerated canonical .yaml + .json and the .with-summaries .yaml + .json");
 
-  console.log("📰 Snapshotting fieldroutes.dev pages (home / examples / faq)");
+  console.log(`📰 Snapshotting Knowledge Base pages (${WATCHED_PAGES.join(" / ")})`);
   try {
     const changed = await snapshotPages();
     console.log(

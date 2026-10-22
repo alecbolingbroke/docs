@@ -478,7 +478,7 @@
       color: hsl(var(--foreground)) !important;
     }
 
-    /* Every operation here is POST, so a saturated badge on all 276 is pure noise. */
+    /* Every operation here is POST, so a saturated badge on every one is pure noise. */
     #panel-swagger .swagger-ui .opblock .opblock-summary-method {
       background: hsl(var(--primary)) !important;
       color: hsl(var(--primary-foreground)) !important;
@@ -632,7 +632,7 @@
   <header>
     <div class="titlebar">
       <h1>FieldRoutes API Reference</h1>
-      <span class="badge">276 endpoints</span>
+      <span class="badge" id="endpoint-count">276 endpoints</span>
       <span class="badge outline">unofficial</span>
       <span class="badge outline">synced weekly</span>
       <span class="spacer"></span>
@@ -719,7 +719,10 @@
     let spec = null;
     const specReady = fetch(SPEC_URL)
       .then((r) => { if (!r.ok) throw new Error(r.status + " " + r.statusText); return r.json(); })
-      .then((s) => (spec = s));
+      .then((s) => {
+        document.getElementById("endpoint-count").textContent = Object.keys(s.paths).length + " endpoints";
+        return (spec = s);
+      });
 
     // ---------------------------------------------------------------- credentials
     // sessionStorage by default; localStorage only when the user opts in. Whichever the

@@ -3,13 +3,12 @@
 A curated, corrected OpenAPI specification for the **FieldRoutes (formerly PestRoutes) API**,
 published as an interactive reference.
 
-This is an **unofficial** project, maintained independently of FieldRoutes. It exists because
-the vendor's published documentation is incomplete and, in places, wrong:
+This is an **unofficial** project, maintained independently of FieldRoutes. FieldRoutes'
+full spec is only downloadable with tenant credentials, and in places it's wrong. This one
+is public, browsable, and corrected:
 
-- **More endpoints.** The spec here documents **276 paths**; the vendor publishes **182**. The
-  extra ~90 are real, in production use, and simply undocumented upstream.
-- **Richer parameters.** Endpoints the vendor does document often list fewer parameters than
-  the API actually accepts.
+- **Complete.** Every endpoint in FieldRoutes' own spec (299 paths as of October 2026),
+  tagged by entity and grouped into sections.
 - **Corrections.** Known documentation errors are fixed — e.g. FieldRoutes labels
   `/group/search`'s `date` as a service date; it is actually the last-updated date. Every fix
   is recorded in [`corrections.yaml`](corrections.yaml) with the reason.
@@ -17,7 +16,7 @@ the vendor's published documentation is incomplete and, in places, wrong:
 
 ## 📖 Live documentation
 
-- **[Reference](https://alecbolingbroke.github.io/docs/fieldroutes/)** — ReDoc, grouped into six sections across 62 entities. The overview carries a glossary, the limits worth designing around, common workflows, and an FAQ.
+- **[Reference](https://alecbolingbroke.github.io/docs/fieldroutes/)** — ReDoc, grouped into six sections by entity. The overview carries a glossary, the limits worth designing around, common workflows, and an FAQ.
 - **[Try it](https://alecbolingbroke.github.io/docs/fieldroutes/index.html#swagger)** — run real calls against your own tenant (see below)
 - **[YAML](https://alecbolingbroke.github.io/docs/fieldroutes/index.html#yaml)** / **[JSON](https://alecbolingbroke.github.io/docs/fieldroutes/index.html#json)** — the raw spec
 
@@ -64,7 +63,7 @@ MCP server or a generated SDK:
 
 | Metadata | Use |
 | --- | --- |
-| `tags` | Every operation is tagged with its entity (62 of them) — natural tool namespaces |
+| `tags` | Every operation is tagged with its entity — natural tool namespaces |
 | `x-tagGroups` | Those entities grouped into six sections |
 | `x-fr-write` | `true` on every mutating operation — gate writes, or expose a read-only surface by default |
 | `produces` | Corrected to `application/json` (the vendor declares `text/html`, which 406s) |
@@ -74,12 +73,14 @@ Machine-readable outputs: `fieldroutes/fieldroutes-swagger-docs.json` (canonical
 
 ## 🔄 How the sync works
 
-`sync-spec.js` runs weekly ([`.github/workflows/sync-spec.yml`](.github/workflows/sync-spec.yml))
-and opens a PR only when something actually changed upstream:
+`sync-spec.js` runs weekly via [`sync-local.sh`](sync-local.sh) and opens a PR only when
+something actually changed upstream. It runs **locally, not in GitHub Actions**: FieldRoutes
+serves its spec only to authenticated tenants, and credentials never go into this public repo.
 
-1. **Fetch** the vendor spec from `fieldroutes.dev/resources/swagger.js` (a static file
-   embedding the full OpenAPI 2.0 document as `window.swagger`) → saved raw to
-   `fieldroutes/upstream.json`.
+1. **Fetch** the vendor spec from `POST https://<tenant>.fieldroutes.com/api/documentation/swagger`
+   (key + token from the environment; the response is generic, not tenant data) → saved raw
+   to `fieldroutes/upstream.json`. The script refuses to write a response that echoes a
+   credential.
 2. **Merge additively** into the canonical spec — new endpoints, parameters and definitions
    are added; nothing is ever removed, so the extra endpoints and richer parameters survive.
    Vendor *changes* to existing fields are deliberately **not** auto-applied; overriding is
@@ -90,12 +91,20 @@ and opens a PR only when something actually changed upstream:
    sections, and flag writes — all derived from the path, so new endpoints are categorized
    automatically. A brand-new *entity* is logged loudly rather than silently bucketed.
 5. **Regenerate** the four published files the site loads.
-6. **Snapshot the vendor's prose pages** — `/home`, `/examples` and `/faq` are rendered from
-   the site's SPA template bundle to plain text in `fieldroutes/upstream-pages/`. A diff there means
-   FieldRoutes changed its stated rate limits, FAQ answers, or example workflows — none of
-   which live in the OpenAPI spec, so nothing else would catch it.
+6. **Snapshot the vendor's prose pages** — the Knowledge Base
+   [API overview](https://knowledgebase.fieldroutes.com/apidocs/fieldroutes-api-overview),
+   release notes and Swagger page, as plain text in `fieldroutes/upstream-pages/`. A diff there
+   means FieldRoutes changed its stated limits, behavior or release notes — none of which live
+   in the OpenAPI spec, so nothing else would catch it.
 
-Run it manually with `npm run sync`.
+**Running it.** `sync-local.sh` clones the repo fresh, runs the sync, and opens or updates a PR
+on `spec-sync/upstream`. It needs only bash, git, curl and node. It reads `FR_HOST`,
+`FR_AUTH_KEY`, `FR_AUTH_TOKEN` and `GITHUB_TOKEN` (a fine-grained PAT for this repo only:
+Contents + Pull requests write) from `~/.config/fieldroutes-docs/env` (override with
+`FR_DOCS_ENV`). Optionally, `SLACK_CHANNEL` in that file plus `SLACK_ENV` pointing at an env
+file with `SLACK_BOT_TOKEN` posts failures to Slack. A launchd job on an always-on host runs an
+installed copy weekly, so re-install it after changing the script. For a one-off run in your
+working copy: `set -a; . ~/.config/fieldroutes-docs/env; set +a; npm run sync`.
 
 ## Local development
 
@@ -125,9 +134,10 @@ source must stay set to **GitHub Actions**.
 | `fieldroutes/fieldroutes-swagger-docs.with-summaries.yaml` | Generated; adds prettified operation summaries |
 | `fieldroutes/fieldroutes-swagger-docs.with-summaries.json` | JSON twin of the above — what the viewer fetches, and the drop-in input for codegen |
 | `fieldroutes/upstream.json` | Raw vendor spec, never hand-edited — reference and change detection |
-| `fieldroutes/upstream-pages/*.txt` | Text snapshots of fieldroutes.dev `/home`, `/examples`, `/faq` |
+| `fieldroutes/upstream-pages/*.txt` | Text snapshots of the Knowledge Base API overview, release notes and Swagger page |
 | `corrections.yaml` | Fixes + overlay applied on top of the merge; also holds the published overview/glossary |
 | `sync-spec.js` | The weekly sync pipeline |
+| `sync-local.sh` | Local weekly runner: fresh clone → sync → PR |
 | `fieldroutes/index.html` | Multi-format documentation viewer |
 | `fieldroutes/generate-summaries.js` | Standalone summary prettifier |
 
