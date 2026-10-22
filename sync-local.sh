@@ -62,7 +62,8 @@ GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
   git push -qf "https://github.com/$REPO.git" "HEAD:refs/heads/$BRANCH"
 
 prs=$(gh_api "$API/pulls?state=open&head=${REPO%%/*}:$BRANCH")
-if [ "$prs" = "[]" ]; then
+# GitHub pretty-prints an empty list as "[\n\n]", so look for a PR rather than compare to "[]".
+if ! grep -q '"number"' <<<"$prs"; then
   body='Automated weekly sync from FieldRoutes'"'"' `/api/documentation/swagger` endpoint, run by `sync-local.sh`.\n\nFR additions (new endpoints / params / definitions) are merged into the canonical spec and the site files are regenerated. The merge is additive-only, so nothing already documented here is removed.\n\n**Review** the additions in the spec-file diffs. If FR introduced a new doc *error*, add a fix to `corrections.yaml`.\n\n`fieldroutes/upstream-pages/*.txt` are plain-text snapshots of the FieldRoutes Knowledge Base API overview, release notes and Swagger page. A diff there means FieldRoutes changed its prose: limits, behavior changes, release notes. If it matters, mirror it into the overview in `corrections.yaml` (`info.description`).\n\nThis branch is force-pushed by every weekly run, so commit fixes to `main`, not here.'
   gh_api -o /dev/null -X POST "$API/pulls" \
     -d "{\"title\":\"Sync: FieldRoutes spec changed upstream\",\"head\":\"$BRANCH\",\"base\":\"main\",\"body\":\"$body\"}"
