@@ -1,0 +1,188 @@
+FR
+
+    FieldRoutes
+Documentation (Swagger/OpenAPI) API Reference
+Meta endpoint that generates Swagger 2.0 / OpenAPI specifications for the entire FieldRoutes REST API.
+Version: v1
+Base URL: https://<your-subdomain>.fieldroutes.com/api
+Authentication: Token-based (header or parameter)
+Format: application/json (output)
+
+1. Overview
+The Documentation endpoint generates a complete Swagger 2.0 (OpenAPI) specification for the FieldRoutes REST API, covering every endpoint, its fields, its search filters, and its additional actions.
+The generated specification includes:
+Full object definitions (schemas) for every entity exposed through the API,
+Search response definitions containing arrays of matching IDs for each entity.
+Path definitions for every standard endpoint (search, get, get-by-ID) plus any additional actions an endpoint supports.
+Security definitions describing the authenticationToken and authenticationKey API key scheme.
+Common use-cases include:
+Importing the generated Swagger JSON into tools like Swagger UI, Postman, or Insomnia for interactive API exploration.
+Auto-generating client SDKs in various languages using swagger-codegen or OpenAPI Generator.
+Keeping external API documentation in sync with the codebase by regenerating specs on each release.
+Tip
+    The generated specification conforms to Swagger 2.0 format. Feed the JSON output directly into Swagger Editor or any OpenAPI-compatible tool for a rendered, interactive view.
+
+Always Current
+    The specification is generated at the time of the request, so it always reflects the API as it is deployed today.
+
+Request Action Names
+    The action value in the URL is swagger, schema, or usage. Any other action returns INVALID REQUEST. See Swagger Specification and API Usage below.
+
+Also Available: action=schema
+    POST /api/documentation/schema returns just the definitions (object schemas) block on its own, without the full paths/security wrapper — useful if you only need entity field metadata.
+
+Not Included in action=endpoints
+    If you list the available endpoints with action=endpoints, documentation does not appear in that list, but you can still call it directly.
+
+2. Authentication
+Every request must include a valid API key pair. Supply credentials as HTTP request headers (see below).
+Header Authentication (recommended)
+# Pass credentials in request headers
+POST /api/documentation/swagger HTTP/1.1
+Host: mycompany.fieldroutes.com
+authenticationToken: YOUR_AUTH_TOKEN
+authenticationKey:   YOUR_AUTH_KEY
+Content-Type: application/json
+Security Note
+    Never expose your API credentials in client-side code or public repositories. Rotate keys immediately if they are compromised.
+
+6. Error Handling
+All error responses share a consistent envelope:
+{
+  "success":   false,
+  "errorCode": 1001,
+  "error":     "Human-readable description of the error."
+}
+HTTP StatusScenario
+401authenticationKey or authenticationToken was not sent.
+403The key or token is invalid or expired, or your API key does not have permission to access this endpoint.
+400A required parameter is missing or has an invalid value.
+404The requested entity class or method was not found.
+500Internal server error during specification generation — contact FieldRoutes support.
+
+Incomplete Specifications
+    If the specification comes back incomplete or the request fails, try again later. If the problem continues, contact FieldRoutes support.
+
+7. Full Examples
+Generate Full Swagger Specification
+## Request
+POST /api/documentation/swagger HTTP/1.1
+Host: mycompany.fieldroutes.com
+Content-Type: application/json
+authenticationToken: YOUR_AUTH_TOKEN
+authenticationKey:   YOUR_AUTH_KEY
+
+## Response (abbreviated)
+{
+  "swagger": "2.0",
+  "schemes": ["https"],
+  "basePath": "/api",
+  "host": "subdomain.fieldroutes.com",
+  "info": {
+    "version": "1.0",
+    "title": "FieldRoutes",
+    "description": "Access your office's data in powerful ways..."
+  },
+  "securityDefinitions": {
+    "authenticationToken": {
+      "name": "authenticationToken",
+      "type": "apiKey",
+      "in": "query"
+    },
+    "authenticationKey": {
+      "name": "authenticationKey",
+      "type": "apiKey",
+      "in": "query"
+    }
+  },
+  "paths": {
+    "/customer/search": {
+      "post": {
+        "summary": "search",
+        "operationId": "customerSearch",
+        "parameters": [/* ... filter params ... */],
+        "security": [
+          { "authenticationToken": [] },
+          { "authenticationKey": [] }
+        ],
+        "responses": {
+          "default": {
+            "description": "Search customer Response...",
+            "schema": { "$ref": "#/definitions/customerSearchResponse" }
+          }
+        }
+      }
+    },
+    "/customer/get": {
+      "post": {
+        "summary": "getBulk",
+        "operationId": "customerGetBulk",
+        /* ... */
+      }
+    }
+    /* ... more paths for every registered entity ... */
+  },
+  "definitions": {
+    "customer": {
+      "type": "object",
+      "properties": {
+        "customerID": { "description": "...", "type": "integer" }
+        /* ... more properties ... */
+      }
+    },
+    "customerSearchResponse": {
+      "type": "object",
+      "properties": {
+        "customerIDs": {
+          "type": "array",
+          "items": { "type": "integer" }
+        }
+      }
+    }
+    /* ... more definitions ... */
+  }
+}
+Import into Swagger UI
+## Step 1: Save the specification to a file
+curl -X POST https://mycompany.fieldroutes.com/api/documentation/swagger \
+  -H "authenticationToken: YOUR_AUTH_TOKEN" \
+  -H "authenticationKey: YOUR_AUTH_KEY" \
+  -o fieldroutes-swagger.json
+
+## Step 2: Open in Swagger Editor
+# Navigate to https://editor.swagger.io/
+# File > Import File > select fieldroutes-swagger.json
+
+## Step 3 (optional): Generate a client SDK
+swagger-codegen generate -i fieldroutes-swagger.json -l python -o ./fieldroutes-client
+Retrieve API Usage Statistics (Today Only)
+## Request
+POST /api/documentation/usage HTTP/1.1
+Host: mycompany.fieldroutes.com
+Content-Type: application/json
+authenticationToken: YOUR_AUTH_TOKEN
+authenticationKey:   YOUR_AUTH_KEY
+
+{
+  "today": "1"
+}
+
+## Response -- bare object, no standard envelope
+{
+  "apiUsage": [
+    {
+      "apiKeyID": "42",
+      "APIKey": "a1b2c3d4e5",
+      "officeName": "Main Office",
+      "action": "customer/search",
+      "ipLocation": "203.0.113.10",
+      "date": "2026-01-15",
+      "totalRequestsMade": "3210",
+      "limitReadRequestsPerDay": "10000",
+      "limitWriteRequestsPerDay": "5000",
+      "limitReadRequestsPerMinute": "100",
+      "limitWriteRequestsPerMinute": "50"
+    }
+    /* ... one row per action / key / day ... */
+  ]
+}

@@ -1,0 +1,109 @@
+FR
+
+    FieldRoutes
+FieldRoutes API Overview
+Welcome to the FieldRoutes API — what it is, what you can build with it, and how to make your first request.
+Audience: FieldRoutes customers, developers & integrators
+Base URL: https://<your-subdomain>.fieldroutes.com/api
+Format: JSON over HTTPS (POST)
+
+1. Welcome
+
+    The FieldRoutes API lets other software read from and write to your FieldRoutes account automatically — no copying, pasting, or manual data entry. Customers, appointments, subscriptions, invoices, payments, routes, employees, and more are all available through one standard, documented interface.
+
+    Think of it as a drive-through window: another program pulls up, asks for (or sends) information in a standard format, and gets a clear answer back — instantly and around the clock. Because the API is open, almost any modern tool — a website, CRM, spreadsheet, automation service, reporting tool, or AI assistant — can connect to FieldRoutes. You are not limited to a pre-approved list of partners.
+
+New to APIs?
+    Start with sections 1–4 for a plain-English tour. Developers can jump straight to the Quick Start and Essentials.
+
+2. What You Can Build
+A few of the most common things customers connect FieldRoutes to:
+You want to…Connect FieldRoutes to…How
+Turn website form submissions into leadsWordPress, Wix, Squarespace, or any web formWeb form → automation tool → customer/create
+Keep your CRM and FieldRoutes in syncHubSpot, Salesforce, PipedriveAn automation tool or a custom integration
+Automate marketing & follow-upsEmail and SMS platformsPull customer lists with customer/search
+Build custom dashboards & reportsGoogle Sheets, Power BI, Looker Studio, a data warehouseExport data with search + get
+Let an AI assistant answer questions about your dataAI chatbots & assistantsThe assistant reads FieldRoutes data through the API
+
+No code? No problem.
+    No-code automation services such as Zapier, Make, and n8n can call the API with point-and-click “send a web request” steps: point it at your FieldRoutes URL, send JSON, and include your key and token.
+
+3. How This Documentation Is Organized
+SectionWhat you'll find
+FieldRoutes API (this section)One page per endpoint — for example Customers, Appointments, Subscriptions, Tickets, and Payments. Each endpoint page describes its data model, and each action (Search, Get, Create, Update, and so on) has its own article with parameters and examples.
+API Release NotesWhat changed in each FieldRoutes release: new endpoints and fields, behavior changes, and fixes.
+Documentation (Swagger)Download a machine-readable Swagger 2.0 (OpenAPI) specification of the whole API to import into Postman, Swagger UI, or a client-SDK generator.
+
+4. Getting Your API Credentials
+Every request needs three things:
+You needWhat it isExample
+Your subdomainYour company's FieldRoutes web address.mycompany.fieldroutes.com
+Authentication keyA username-like credential that identifies your API key.authenticationKey
+Authentication tokenA password-like secret that proves the request is allowed.authenticationToken
+
+    API keys are issued by FieldRoutes to the company that owns the FieldRoutes account. To request a key, contact your FieldRoutes account team. A key can be limited to read-only access, to specific endpoints, or to an expiration date.
+
+Building an integration for other companies?
+    FieldRoutes does not issue vendor or multi-tenant keys. Each company that uses your integration requests its own key from its FieldRoutes account team and shares it with you, and you store one set of credentials per company.
+
+Treat your key and token like a password
+    They grant access to your business data. Never put them in client-side code or public repositories, share them only with partners you trust, and ask your account team for new credentials if you believe they've been exposed.
+
+5. Quick Start: Your First Request
+
+    Every request is an HTTPS POST to your subdomain, in the form https://<your-subdomain>.fieldroutes.com/api/{endpoint}/{action}, with a JSON body. Send your credentials as request headers (recommended) or in the body.
+
+Step 1 — Search for records
+A search returns the IDs of records that match your filters. This one finds active customers:
+# Request
+POST /api/customer/search HTTP/1.1
+Host: mycompany.fieldroutes.com
+authenticationKey:   YOUR_AUTH_KEY
+authenticationToken: YOUR_AUTH_TOKEN
+Content-Type: application/json
+
+{ "status": 1 }
+
+# Response (shortened)
+{
+  "success": true,
+  "count": 2,
+  "customerIDs": [101, 102]
+}
+Step 2 — Get the full records
+A get returns the full details for the IDs you found:
+# Request
+POST /api/customer/get HTTP/1.1
+Host: mycompany.fieldroutes.com
+authenticationKey:   YOUR_AUTH_KEY
+authenticationToken: YOUR_AUTH_TOKEN
+Content-Type: application/json
+
+{ "customerIDs": [101, 102] }
+
+# Response (shortened)
+{
+  "success": true,
+  "customers": [
+    { "customerID": "101", "fname": "Jane", "lname": "Doe" }
+  ]
+}
+That's the whole pattern
+    Almost every endpoint works the same way: search to find records, get to read them, and create / update to add or change them. Once these two calls work, you can use any endpoint in this documentation.
+
+6. Essentials at a Glance
+Keep these rules in mind from your first request:
+TopicWhat to know
+HTTP methodAlways POST, including reads. GET and PUT are not supported.
+URLNo version segment: use /api/customer/search, not /api/v1/customer/search.
+Search limitA search returns at most 50,000 IDs. If you get exactly 50,000, page through the rest using the primary key.
+Get limitA get (or a search with includeData=1) returns at most 1,000 records. Request larger sets in batches of 1,000 IDs.
+Rate limitsEach key has per-minute and per-day limits for reads and writes. Every response shows your usage in tokenUsage and tokenLimits; going over returns HTTP 429.
+Dates and timesReturned exactly as stored, in Pacific time (America/Los_Angeles). Convert to and from your own timezone.
+Unrecognized parametersCheck ignoredParams in every response: a misspelled filter is ignored rather than rejected.
+Authentication errorsHTTP 401 means the key or token was not sent. 403 means they were sent but are invalid or expired, or the key isn't allowed to call that endpoint or action — the errorMessage says which.
+
+7. Need Help?
+Questions about the API or this documentation: email support@fieldroutes.com.
+New API keys, key changes, or access for an integrator: contact your FieldRoutes account team.
+What changed recently: see the API Release Notes.

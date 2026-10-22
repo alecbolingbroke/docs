@@ -8,7 +8,7 @@
   "info": {
     "version": "1.0",
     "title": "FieldRoutes",
-    "description": "# FieldRoutes API — Community Reference\n\nA curated, corrected FieldRoutes OpenAPI spec — more complete than the vendor's\npublished docs (it documents ~90 endpoints and many fields FieldRoutes omits),\ncorrected for known documentation errors, and auto-synced from\n[fieldroutes.dev](https://fieldroutes.dev) every week.\n\nThis is an **unofficial** reference maintained independently of FieldRoutes.\nFor account-specific or support issues, contact **apisupport@fieldroutes.com**.\n\n**Spot an error, a stale field, or a missing endpoint?**\n[Open an issue](https://github.com/alecbolingbroke/docs/issues) —\ncorrections are welcome and get folded into the next sync.\n\n## Getting started\n\nEvery call is a POST (or GET) to `https://YOURDOMAIN.pestroutes.com/api/{entity}/{action}`\nwith `authenticationKey` + `authenticationToken` (and usually `officeID`).\n\n```\nPOST https://YOURDOMAIN.pestroutes.com/api/customer/search\nContent-Type: application/json\n\n{ \"authenticationKey\": \"…\", \"authenticationToken\": \"…\",\n  \"lname\": \"Doe\", \"includeData\": 1 }\n```\n\nYou can also pull the vendor's own raw spec at any time:\n`/api/documentation/swagger?authenticationKey=xxx&authenticationToken=xxx`.\n\n## Limits you need to design around\n\n| Limit | Value | What to do about it |\n| --- | --- | --- |\n| `/search` result set | **50,000 IDs** | Exactly 50,000 back means there are more. Page on the primary key with `>` and the last ID of the previous page until a set returns short. |\n| `/get` entities | **1,000** | Chunk your ID lists. Inputs past the limit may be silently truncated — send `authenticationKey`/`authenticationToken` **last** so a truncated request fails outright instead of half-executing. |\n| `includeData=1` on search | **1,000 resolved** | Overflow IDs come back in `{entity}IDsNoDataExported`; fetch those separately. |\n| `bulkEntities` per write | **100** | Split larger batches and stagger them. |\n| Rate | **3,000 reads + 3,000 writes per office, 60/min** | Default cap. See the FAQ on pacing before you go near it. |\n\n## Keys and office scope\n\n- By default a key is bound to **one office**: reads get an implied `officeIDs`\n  filter and writes an implied `officeID`.\n- **Global keys** may pass any `officeIDs` filter on search and any `officeID` on\n  writes (`officeIDs: 0` = all offices).\n- **Key grouping:** each key has its own read/write limits by default. Keys can be\n  grouped on request so their limits and usage aggregate into a shared pool.\n\n## Core entities\n- **Office** — a branch/market. Almost everything is scoped by `officeID`.\n- **Customer** — the account holder / serviced property (`customerID`); the hub other records hang off.\n- **Subscription** — a customer's recurring service plan (recurring revenue): service type, billing frequency, charges/addons.\n- **Appointment** — a single scheduled visit. Key fields: `date`, `status`, `assignedTech`, `spotID`, `routeID`, `cancellationReasonID`.\n- **Route** — a tech's day of stops for one `date`; carries `groupID`/`groupTitle` and `assignedTech` (`0` = unassigned). The service date lives here, not on the group.\n- **Spot** — a bookable time slot on a route (`start`/`end`, `spotCapacity`). `currentAppointment` empty = open; `blockReason` set = blocked. `/spot/reserve` holds one for `duration` minutes (a lock, not a booking).\n- **Group** — a routing template/team that routes are scheduled onto. Thin entity (`groupID`, `templateID`, `dateUpdated`); has no service date.\n- **Ticket** — an invoice / charge document.\n- **Note** — a comment on a customer/appointment; `contactType` sets the kind.\n\n## Flags & reasons\n- **Generic Flag** (`genericFlagAssignment`) — a tag attached to an entity (CUST/APPT). The flag set is defined per-office, so it's the usual place custom attributes end up (property characteristics, reason codes, campaign tags).\n- **customerFlag** — flags on the customer record (e.g. `pendingCancel`).\n- **contactType** — the note type, configured per-office under **Admin > Preferences > Notes**. The IDs are *not* portable between offices or tenants — look yours up rather than hardcoding a number you saw in someone else's integration.\n- **cancellationReason** — coded reasons an appointment was cancelled/no-showed (`cancellationReasonID`).\n\n## Try it from this page\n\nThe **Try it** tab runs real calls against your own tenant. Enter your host\n(`mycompany.fieldroutes.com`), key and token in the bar at the top, then pick an\nendpoint and hit *Execute*. Requests go **straight from your browser to your\nFieldRoutes host** — this site has no backend and never sees your credentials.\n\nWrites are blocked until you explicitly tick **Allow write operations**, because\n`create`/`update`/`delete` hit live data with no undo.\n\n## Status & scheduling\n- **Appointment status** (integer): `-1` = Cancelled · `-2` = Re-Scheduled · `0` = Pending · `1` = Completed · `2` = No Show.\n  `-2` is easy to miss and matters for reporting: an appointment that was no-showed\n  and then rescheduled **no longer carries status `2`**, so a no-show report filtered\n  on `2` alone undercounts. A reschedule also populates `rescheduleReasonID` — a\n  different lookup from `cancellationReasonID`.\n- **assignedTech** — employee on a route/appointment; `0` = none.\n- **apiCanSchedule** — send `1` on route/spot search to return only the slots the API may schedule onto — the gate for programmatic scheduling.\n\n## API conventions\n\n**`/search` → `/get`.** `/{entity}/search` returns IDs; feed them to `/{entity}/get`\nfor the full records. `includeData=1` short-circuits that for the first 1,000.\n\n**Every search parameter** takes either a plain value or a query object:\n\n```json\n{ \"dateUpdated\": { \"operator\": \">\", \"value\": \"2026-01-01 00:00:00\" } }\n```\n\n| Operator type | Accepted values |\n| --- | --- |\n| Comparison | `=` `!=` `>` `<` `>=` `<=` |\n| Set / range | `IN` `BETWEEN` |\n| Text | `LIKE` `STARTSWITH` `ENDSWITH` `CONTAINS` |\n\n**Auth** — every call needs `authenticationKey` + `authenticationToken`, and usually\n`officeID`. **accessControl** profiles (the view/edit/financial flags on an employee)\ngate what a key is allowed to do.\n\n## Silent failures you have to design around\n\nThe API's most expensive failure mode is not an error — it's a `200` that did\nnothing. Each of these has been observed in production.\n\n**A read can return `200` + `success: true` + an empty array for a record that\nexists.** There is no `429`, no `errorMessage`, and nothing to distinguish it from a\ngenuine not-found. Failures arrive in bursts, which suggests a server-side window\nrather than per-record state — the same call for the same ID succeeds minutes later.\n\n> Treat an empty read as **retryable, not as \"deleted\"**. Retry with exponential\n> backoff and jitter, bounded by a budget that stays under your own function's\n> timeout. Code that does `if (!rows.length) throw new Error('not found')` will\n> silently drop real records.\n\n**A write can return `200` with `success: false` in the body.** Check `success` on\nevery mutating call; the HTTP status alone will not tell you the write landed.\n\n**A write can also report success while ignoring part of your payload.** Look for\n**`ignoredParams`** in the response — a parameter the endpoint does not accept is\ndropped there rather than rejected. Notably, `/appointment/update` accepts\n`cancelledBy` but ignores `cancellationReasonID`; the latter is cleared by the\nplatform when an appointment leaves No Show status and cannot be written back\nthrough any update endpoint. If you need that reason to survive a status change,\npersist it yourself before the transition, or read it from a flag instead.\n\n**Read your writes back when it matters.** For flag assignments in particular, a\n`200` is not proof the assignment is visible. Make the read-back advisory — alert on\na mismatch rather than aborting, or a false negative will abort work that actually\nsucceeded.\n\n### Singular vs plural parameter names are load-bearing\n\nSeveral endpoints accept a plural filter and **silently ignore the singular form**,\nwhich fails in the worst possible direction — not an error, not an empty set, but a\nwrong result set that looks plausible:\n\n| Endpoint | Correct | What the singular does |\n| --- | --- | --- |\n| `/genericFlagAssignment/search` | `entityIDs` | `entityID` is ignored — returns **every assignment in the system** |\n| `/appointment/search` | `customerIDs` | `customerID` lands in `ignoredParams` — returns **every appointment** (capped at 50,000) |\n| `/appointment/search` | `officeIDs` | singular `officeID` returns `count: 0` |\n\n**`/genericFlagAssignment/*` search and get need `officeIDs: 0` and must not receive\na singular `officeID` at all.** Sending `officeID` alone returns `count: 0`, and\nsending **both** `officeID` and `officeIDs: 0` also returns `count: 0`. If you have a\nshared request helper that injects `officeID` on every call, it needs an escape hatch\nfor these endpoints.\n\n**`/appointment/search` defaults to `status IN (0,1)`.** No Show, Re-Scheduled and Cancelled\nare excluded unless you pass `status` explicitly, so any report built on an unfiltered\nappointment search undercounts silently.\n\n### Credentials come back in every response\n\nResponses echo the `authenticationKey` and `authenticationToken` you sent inside a\n`params` object, and most HTTP clients attach the outbound request body to their\nerror objects too. **So `console.error(err)` or logging `err.response.data` writes\nlive credentials into your logs**, where they persist for the retention window.\n\n> Log the status and `errorMessage`, never the whole body — and if you find you have\n> been logging it, rotating the key is the remediation, not just fixing the log line.\n\n### Trigger-rule webhooks\n\nIf you drive integrations from FieldRoutes' trigger rules rather than by polling:\n\n- **They post `multipart/form-data`, not JSON.** Serverless platforms commonly leave\n  multipart bodies unparsed, so a handler written for JSON sees an unparsed buffer and\n  reports fields \"missing\" when every field was present.\n- **A failed delivery is not retried.** There is no redelivery and no dead-letter\n  queue, so if your handler drops the request the event is gone. Return `200` and\n  handle failures internally, or accept that non-2xx means the event is lost.\n- **They fire on a status *transition*.** Applying a flag or setting a field without\n  moving the status will not fire a rule that watches that transition — which is why\n  a record can look correctly tagged in the UI while no notification ever went out.\n\n## Building tools against this spec\n\nThe published spec carries extra metadata to make code generation and agent tooling\nstraightforward — it's the intended backbone for an MCP server or SDK:\n\n- **`tags`** — every operation is tagged with its entity (`customer`, `spot`, …), and\n  `x-tagGroups` sorts those 62 entities into six sections. Natural tool namespaces.\n- **`x-fr-write: true`** — set on every mutating operation. Use it to gate writes\n  behind confirmation, or to expose a read-only tool surface by default.\n- **Machine-readable artifacts** — `fieldroutes-swagger-docs.json` (canonical) and\n  `fieldroutes-swagger-docs.with-summaries.json` (adds human-readable operation\n  titles). Both are regenerated by the same weekly pipeline as this page.\n\nNote that `produces` is corrected to `application/json` here. FieldRoutes declares\n`text/html`, but the API is content-negotiated and answers a request for text/html\nwith a **406** — a client that honours the vendor's declared type gets rejected.\n\n## Common workflows\n\nExamples below use the vendor's `apiModule` JS helper (from\n[fieldroutes.dev/examples](https://fieldroutes.dev/examples), which has the full\nrunnable set); the same shapes apply to any HTTP client.\n\n**Incremental sync — pull everything changed since your last run**\n\n```js\napiModule.search('customer', {\n  dateUpdated: { operator: '>', value: '2022-03-01 00:00:00' },\n  includeData: 1\n}, /* fullResult */ 1).then(console.log);\n```\n\n**Global lookup by phone (global key)**\n\n```js\napiModule.search('customer', { officeIDs: 0, phone: '5558675309', includeData: 1 });\n```\n\n**Create a customer with a subscription**\n\n```js\napiModule.call('customer', 'create', { fname: 'John', lname: 'Doe' })\n  .then(r => apiModule.call('subscription', 'create', {\n    customerID: r.result,\n    serviceID: 1,\n    active: 1,\n    initialCharge: 200,      // charged on the initial service\n    serviceCharge: 100,      // charged per recurring service\n    agreementLength: 12,     // months\n    preferredDays: 4,        // 0=SUN … 6=SAT\n    preferredStart: '09:00:00',\n    preferredEnd: '17:00:00',\n    preferredTech: 1         // employeeID; 0 = no preference\n  }));\n```\n\n**Turn a subscription into a lead** — create it, then set the lead stage via\n`subscription/updateLeadStage` (`stageID` + `status`).\n\n**Addons** — both `initialAddons` and recurring `addons` take\n`{ description, quantity, amount, productID, serviceID, taxable, creditTo, unitID }`.\nA negative `amount` is a discount.\n\n**Payment profiles** — `paymentProfile/create` with `paymentMethod` `1` = credit\ncard, `2` = ACH, plus `gateway` (`payrix`, `authorize`, `nmi`, `brain`, `element`).\nCard profiles take `merchantID`/`merchantToken` from the gateway's tokenizer; ACH\ntakes `accountNumber`/`routingNumber`. **Confirm the active gateway with the office\nadmin first** — profiles created against an inactive gateway may be unusable.\nRefunds are `payment/createRefund` with `paymentID` + `amount`.\n\n**Bulk write (≤100 per request)**\n\n```js\napiModule.call('customer', 'create', {\n  officeID: 1,\n  bulkEntities: [{ fname: 'A', lname: 'One' }, { fname: 'B', lname: 'Two' }]\n});\n```\n\nFor large update sets driven off a search or CSV, stagger the writes\n(`apiModule.staggeredWrite(entity, action, rows, concurrency)`) rather than firing\nthem all at once.\n\n**Documents & contracts** — `document/createEncoded` (`encodedFile`) and\n`contract/create` (`base64EncodedFile`) take base64 with the data-URL prefix\nstripped.\n\n**dataLink** — attach arbitrary JSON to a record (`dataLink` on create/update, or\nthe `dataLink` entity). Pass `dataLink: 1` on search/get to have it resolved back.\n\n**Find the best spot for an address**\n\n```js\napiModule.search('route', {\n  date: { operator: 'between', value: ['2020-09-24', '2020-09-30'] },\n  latitude: lat, longitude: lng, apiCanSchedule: 1, includeData: 1\n})\n// sort routes by averageDistance, take the closest few, then:\n.then(routeIDs => apiModule.search('spot', {\n  routeIDs, date: dateFilter, latitude: lat, longitude: lng,\n  apiCanSchedule: 1, ignoreInitialDriveTime: 1, includeData: 1\n}));\n```\n\nSpots come back ordered by distance from the tech's previous stop, so the first\n`open` spot is usually the right one. If the appointment `duration` exceeds\n`spotCapacity`, walk `nextSpotID` until the full duration is covered.\n`ignoreInitialDriveTime: 1` stops the tech's start/end location from being weighed\nonce a route already has an appointment on it.\n\n**Hiding keys from the browser** — don't ship `authenticationKey`/`Token` to a\nfront end. Proxy through your own middleware and inject the credentials\nserver-side.\n\n## FAQ\n\n**Can we increase our API limits?**\nPremium API limits are capped by default at **3,000 reads and 3,000 writes per\noffice, at 60/minute**. If your needs exceed that, email\n**apisupport@fieldroutes.com** for a consultation.\n\n**Something went wrong — are there request logs?**\nYes. Reach out to **apisupport@fieldroutes.com** and they can pull them.\n\n**How should I pace my requests?**\nThrottle deliberately and treat the per-office limits as a shared budget, not a\ntarget. A few practical rules that hold up well in production:\n\n- **Never spike the API.** Bursting through a large ID list at full speed will\n  exhaust an office's read or write budget and degrade every other integration\n  (and the FieldRoutes UI) pointed at that office.\n- **Cap concurrency**, don't fan out. Staggered writes with a small concurrency\n  (≈4–8 in flight) are the norm; `apiModule.staggeredWrite` does this for you.\n- **Stay well under 60/minute per office**, and remember limits are *per office*\n  unless your keys have been grouped into a shared pool — in which case every\n  integration on those keys is drawing from the same budget.\n- **Batch instead of looping.** Use `/search` + `includeData=1`, `/get` with up to\n  1,000 IDs, and `bulkEntities` (≤100) rather than one call per record.\n- **Spread scheduled jobs out.** Don't have every nightly job start on the hour\n  against the same office; offset them.\n- **Back off on failure** rather than retrying immediately — retry storms are what\n  turn a blip into an outage.\n\n**Why does this spec differ from the vendor's?**\nIt's additive: everything FieldRoutes documents is here, plus endpoints and fields\nthat are real and in use but undocumented upstream, plus corrections where the\nvendor's docs are wrong. See the caveat below.\n\n**Something looks wrong here.**\n[Open an issue](https://github.com/alecbolingbroke/docs/issues) with\nthe endpoint and what you observed. For account, key, or platform issues, go to\n**apisupport@fieldroutes.com** instead.\n\n_Doc caveats: the vendor's own docs mislabel some fields (e.g. `group.date` is last-updated, not a service date) and mark some as required that aren't. This spec corrects them._\n",
+    "description": "# FieldRoutes API — Community Reference\n\nA curated, corrected FieldRoutes OpenAPI spec — FieldRoutes' own published spec,\ncorrected for known documentation errors, with tags, write flags and a glossary\nadded, and auto-synced from FieldRoutes every week. The vendor's prose docs live in\nthe [FieldRoutes Knowledge Base](https://knowledgebase.fieldroutes.com/apidocs/fieldroutes-api-overview).\n\nThis is an **unofficial** reference maintained independently of FieldRoutes.\nFor account-specific or support issues, contact **apisupport@fieldroutes.com**.\n\n**Spot an error, a stale field, or a missing endpoint?**\n[Open an issue](https://github.com/alecbolingbroke/docs/issues) —\ncorrections are welcome and get folded into the next sync.\n\n## Getting started\n\nEvery call is a POST (or GET) to `https://YOURDOMAIN.pestroutes.com/api/{entity}/{action}`\nwith `authenticationKey` + `authenticationToken` (and usually `officeID`).\n\n```\nPOST https://YOURDOMAIN.pestroutes.com/api/customer/search\nContent-Type: application/json\n\n{ \"authenticationKey\": \"…\", \"authenticationToken\": \"…\",\n  \"lname\": \"Doe\", \"includeData\": 1 }\n```\n\nYou can also pull the vendor's own raw spec at any time:\n`/api/documentation/swagger?authenticationKey=xxx&authenticationToken=xxx`.\n\n## Limits you need to design around\n\n| Limit | Value | What to do about it |\n| --- | --- | --- |\n| `/search` result set | **50,000 IDs** | Exactly 50,000 back means there are more. Page on the primary key with `>` and the last ID of the previous page until a set returns short. |\n| `/get` entities | **1,000** | Chunk your ID lists. Inputs past the limit may be silently truncated — send `authenticationKey`/`authenticationToken` **last** so a truncated request fails outright instead of half-executing. |\n| `includeData=1` on search | **1,000 resolved** | Overflow IDs come back in `{entity}IDsNoDataExported`; fetch those separately. |\n| `bulkEntities` per write | **100** | Split larger batches and stagger them. |\n| Rate | **3,000 reads + 3,000 writes per office, 60/min** | Default cap. See the FAQ on pacing before you go near it. |\n\n## Keys and office scope\n\n- By default a key is bound to **one office**: reads get an implied `officeIDs`\n  filter and writes an implied `officeID`.\n- **Global keys** may pass any `officeIDs` filter on search and any `officeID` on\n  writes (`officeIDs: 0` = all offices).\n- **Key grouping:** each key has its own read/write limits by default. Keys can be\n  grouped on request so their limits and usage aggregate into a shared pool.\n\n## Core entities\n- **Office** — a branch/market. Almost everything is scoped by `officeID`.\n- **Customer** — the account holder / serviced property (`customerID`); the hub other records hang off.\n- **Subscription** — a customer's recurring service plan (recurring revenue): service type, billing frequency, charges/addons.\n- **Appointment** — a single scheduled visit. Key fields: `date`, `status`, `assignedTech`, `spotID`, `routeID`, `cancellationReasonID`.\n- **Route** — a tech's day of stops for one `date`; carries `groupID`/`groupTitle` and `assignedTech` (`0` = unassigned). The service date lives here, not on the group.\n- **Spot** — a bookable time slot on a route (`start`/`end`, `spotCapacity`). `currentAppointment` empty = open; `blockReason` set = blocked. `/spot/reserve` holds one for `duration` minutes (a lock, not a booking).\n- **Group** — a routing template/team that routes are scheduled onto. Thin entity (`groupID`, `templateID`, `dateUpdated`); has no service date.\n- **Ticket** — an invoice / charge document.\n- **Note** — a comment on a customer/appointment; `contactType` sets the kind.\n\n## Flags & reasons\n- **Generic Flag** (`genericFlagAssignment`) — a tag attached to an entity (CUST/APPT). The flag set is defined per-office, so it's the usual place custom attributes end up (property characteristics, reason codes, campaign tags).\n- **customerFlag** — flags on the customer record (e.g. `pendingCancel`).\n- **contactType** — the note type, configured per-office under **Admin > Preferences > Notes**. The IDs are *not* portable between offices or tenants — look yours up rather than hardcoding a number you saw in someone else's integration.\n- **cancellationReason** — coded reasons an appointment was cancelled/no-showed (`cancellationReasonID`).\n\n## Try it from this page\n\nThe **Try it** tab runs real calls against your own tenant. Enter your host\n(`mycompany.fieldroutes.com`), key and token in the bar at the top, then pick an\nendpoint and hit *Execute*. Requests go **straight from your browser to your\nFieldRoutes host** — this site has no backend and never sees your credentials.\n\nWrites are blocked until you explicitly tick **Allow write operations**, because\n`create`/`update`/`delete` hit live data with no undo.\n\n## Status & scheduling\n- **Appointment status** (integer): `-1` = Cancelled · `-2` = Re-Scheduled · `0` = Pending · `1` = Completed · `2` = No Show.\n  `-2` is easy to miss and matters for reporting: an appointment that was no-showed\n  and then rescheduled **no longer carries status `2`**, so a no-show report filtered\n  on `2` alone undercounts. A reschedule also populates `rescheduleReasonID` — a\n  different lookup from `cancellationReasonID`.\n- **assignedTech** — employee on a route/appointment; `0` = none.\n- **apiCanSchedule** — send `1` on route/spot search to return only the slots the API may schedule onto — the gate for programmatic scheduling.\n\n## API conventions\n\n**`/search` → `/get`.** `/{entity}/search` returns IDs; feed them to `/{entity}/get`\nfor the full records. `includeData=1` short-circuits that for the first 1,000.\n\n**Every search parameter** takes either a plain value or a query object:\n\n```json\n{ \"dateUpdated\": { \"operator\": \">\", \"value\": \"2026-01-01 00:00:00\" } }\n```\n\n| Operator type | Accepted values |\n| --- | --- |\n| Comparison | `=` `!=` `>` `<` `>=` `<=` |\n| Set / range | `IN` `BETWEEN` |\n| Text | `LIKE` `STARTSWITH` `ENDSWITH` `CONTAINS` |\n\n**Auth** — every call needs `authenticationKey` + `authenticationToken`, and usually\n`officeID`. **accessControl** profiles (the view/edit/financial flags on an employee)\ngate what a key is allowed to do.\n\n## Silent failures you have to design around\n\nThe API's most expensive failure mode is not an error — it's a `200` that did\nnothing. Each of these has been observed in production.\n\n**A read can return `200` + `success: true` + an empty array for a record that\nexists.** There is no `429`, no `errorMessage`, and nothing to distinguish it from a\ngenuine not-found. Failures arrive in bursts, which suggests a server-side window\nrather than per-record state — the same call for the same ID succeeds minutes later.\n\n> Treat an empty read as **retryable, not as \"deleted\"**. Retry with exponential\n> backoff and jitter, bounded by a budget that stays under your own function's\n> timeout. Code that does `if (!rows.length) throw new Error('not found')` will\n> silently drop real records.\n\n**A write can return `200` with `success: false` in the body.** Check `success` on\nevery mutating call; the HTTP status alone will not tell you the write landed.\n\n**A write can also report success while ignoring part of your payload.** Look for\n**`ignoredParams`** in the response — a parameter the endpoint does not accept is\ndropped there rather than rejected. Notably, `/appointment/update` accepts\n`cancelledBy` but ignores `cancellationReasonID`; the latter is cleared by the\nplatform when an appointment leaves No Show status and cannot be written back\nthrough any update endpoint. If you need that reason to survive a status change,\npersist it yourself before the transition, or read it from a flag instead.\n\n**Read your writes back when it matters.** For flag assignments in particular, a\n`200` is not proof the assignment is visible. Make the read-back advisory — alert on\na mismatch rather than aborting, or a false negative will abort work that actually\nsucceeded.\n\n### Singular vs plural parameter names are load-bearing\n\nSeveral endpoints accept a plural filter and **silently ignore the singular form**,\nwhich fails in the worst possible direction — not an error, not an empty set, but a\nwrong result set that looks plausible:\n\n| Endpoint | Correct | What the singular does |\n| --- | --- | --- |\n| `/genericFlagAssignment/search` | `entityIDs` | `entityID` is ignored — returns **every assignment in the system** |\n| `/appointment/search` | `customerIDs` | `customerID` lands in `ignoredParams` — returns **every appointment** (capped at 50,000) |\n| `/appointment/search` | `officeIDs` | singular `officeID` returns `count: 0` |\n\n**`/genericFlagAssignment/*` search and get need `officeIDs: 0` and must not receive\na singular `officeID` at all.** Sending `officeID` alone returns `count: 0`, and\nsending **both** `officeID` and `officeIDs: 0` also returns `count: 0`. If you have a\nshared request helper that injects `officeID` on every call, it needs an escape hatch\nfor these endpoints.\n\n**`/appointment/search` defaults to `status IN (0,1)`.** No Show, Re-Scheduled and Cancelled\nare excluded unless you pass `status` explicitly, so any report built on an unfiltered\nappointment search undercounts silently.\n\n### Credentials come back in every response\n\nResponses echo the `authenticationKey` and `authenticationToken` you sent inside a\n`params` object, and most HTTP clients attach the outbound request body to their\nerror objects too. **So `console.error(err)` or logging `err.response.data` writes\nlive credentials into your logs**, where they persist for the retention window.\n\n> Log the status and `errorMessage`, never the whole body — and if you find you have\n> been logging it, rotating the key is the remediation, not just fixing the log line.\n\n### Trigger-rule webhooks\n\nIf you drive integrations from FieldRoutes' trigger rules rather than by polling:\n\n- **They post `multipart/form-data`, not JSON.** Serverless platforms commonly leave\n  multipart bodies unparsed, so a handler written for JSON sees an unparsed buffer and\n  reports fields \"missing\" when every field was present.\n- **A failed delivery is not retried.** There is no redelivery and no dead-letter\n  queue, so if your handler drops the request the event is gone. Return `200` and\n  handle failures internally, or accept that non-2xx means the event is lost.\n- **They fire on a status *transition*.** Applying a flag or setting a field without\n  moving the status will not fire a rule that watches that transition — which is why\n  a record can look correctly tagged in the UI while no notification ever went out.\n\n## Building tools against this spec\n\nThe published spec carries extra metadata to make code generation and agent tooling\nstraightforward — it's the intended backbone for an MCP server or SDK:\n\n- **`tags`** — every operation is tagged with its entity (`customer`, `spot`, …), and\n  `x-tagGroups` sorts those entities into six sections. Natural tool namespaces.\n- **`x-fr-write: true`** — set on every mutating operation. Use it to gate writes\n  behind confirmation, or to expose a read-only tool surface by default.\n- **Machine-readable artifacts** — `fieldroutes-swagger-docs.json` (canonical) and\n  `fieldroutes-swagger-docs.with-summaries.json` (adds human-readable operation\n  titles). Both are regenerated by the same weekly pipeline as this page.\n\nNote that `produces` is corrected to `application/json` here. FieldRoutes declares\n`text/html`, but the API is content-negotiated and answers a request for text/html\nwith a **406** — a client that honours the vendor's declared type gets rejected.\n\n## Common workflows\n\nExamples below use the vendor's `apiModule` JS helper, from their original\ndeveloper site; the same shapes apply to any HTTP client.\n\n**Incremental sync — pull everything changed since your last run**\n\n```js\napiModule.search('customer', {\n  dateUpdated: { operator: '>', value: '2022-03-01 00:00:00' },\n  includeData: 1\n}, /* fullResult */ 1).then(console.log);\n```\n\n**Global lookup by phone (global key)**\n\n```js\napiModule.search('customer', { officeIDs: 0, phone: '5558675309', includeData: 1 });\n```\n\n**Create a customer with a subscription**\n\n```js\napiModule.call('customer', 'create', { fname: 'John', lname: 'Doe' })\n  .then(r => apiModule.call('subscription', 'create', {\n    customerID: r.result,\n    serviceID: 1,\n    active: 1,\n    initialCharge: 200,      // charged on the initial service\n    serviceCharge: 100,      // charged per recurring service\n    agreementLength: 12,     // months\n    preferredDays: 4,        // 0=SUN … 6=SAT\n    preferredStart: '09:00:00',\n    preferredEnd: '17:00:00',\n    preferredTech: 1         // employeeID; 0 = no preference\n  }));\n```\n\n**Turn a subscription into a lead** — create it, then set the lead stage via\n`subscription/updateLeadStage` (`stageID` + `status`).\n\n**Addons** — both `initialAddons` and recurring `addons` take\n`{ description, quantity, amount, productID, serviceID, taxable, creditTo, unitID }`.\nA negative `amount` is a discount.\n\n**Payment profiles** — `paymentProfile/create` with `paymentMethod` `1` = credit\ncard, `2` = ACH, plus `gateway` (`payrix`, `authorize`, `nmi`, `brain`, `element`).\nCard profiles take `merchantID`/`merchantToken` from the gateway's tokenizer; ACH\ntakes `accountNumber`/`routingNumber`. **Confirm the active gateway with the office\nadmin first** — profiles created against an inactive gateway may be unusable.\nRefunds are `payment/createRefund` with `paymentID` + `amount`.\n\n**Bulk write (≤100 per request)**\n\n```js\napiModule.call('customer', 'create', {\n  officeID: 1,\n  bulkEntities: [{ fname: 'A', lname: 'One' }, { fname: 'B', lname: 'Two' }]\n});\n```\n\nFor large update sets driven off a search or CSV, stagger the writes\n(`apiModule.staggeredWrite(entity, action, rows, concurrency)`) rather than firing\nthem all at once.\n\n**Documents & contracts** — `document/createEncoded` (`encodedFile`) and\n`contract/create` (`base64EncodedFile`) take base64 with the data-URL prefix\nstripped.\n\n**dataLink** — attach arbitrary JSON to a record (`dataLink` on create/update, or\nthe `dataLink` entity). Pass `dataLink: 1` on search/get to have it resolved back.\n\n**Find the best spot for an address**\n\n```js\napiModule.search('route', {\n  date: { operator: 'between', value: ['2020-09-24', '2020-09-30'] },\n  latitude: lat, longitude: lng, apiCanSchedule: 1, includeData: 1\n})\n// sort routes by averageDistance, take the closest few, then:\n.then(routeIDs => apiModule.search('spot', {\n  routeIDs, date: dateFilter, latitude: lat, longitude: lng,\n  apiCanSchedule: 1, ignoreInitialDriveTime: 1, includeData: 1\n}));\n```\n\nSpots come back ordered by distance from the tech's previous stop, so the first\n`open` spot is usually the right one. If the appointment `duration` exceeds\n`spotCapacity`, walk `nextSpotID` until the full duration is covered.\n`ignoreInitialDriveTime: 1` stops the tech's start/end location from being weighed\nonce a route already has an appointment on it.\n\n**Hiding keys from the browser** — don't ship `authenticationKey`/`Token` to a\nfront end. Proxy through your own middleware and inject the credentials\nserver-side.\n\n## FAQ\n\n**Can we increase our API limits?**\nPremium API limits are capped by default at **3,000 reads and 3,000 writes per\noffice, at 60/minute**. If your needs exceed that, email\n**apisupport@fieldroutes.com** for a consultation.\n\n**Something went wrong — are there request logs?**\nYes. Reach out to **apisupport@fieldroutes.com** and they can pull them.\n\n**How should I pace my requests?**\nThrottle deliberately and treat the per-office limits as a shared budget, not a\ntarget. A few practical rules that hold up well in production:\n\n- **Never spike the API.** Bursting through a large ID list at full speed will\n  exhaust an office's read or write budget and degrade every other integration\n  (and the FieldRoutes UI) pointed at that office.\n- **Cap concurrency**, don't fan out. Staggered writes with a small concurrency\n  (≈4–8 in flight) are the norm; `apiModule.staggeredWrite` does this for you.\n- **Stay well under 60/minute per office**, and remember limits are *per office*\n  unless your keys have been grouped into a shared pool — in which case every\n  integration on those keys is drawing from the same budget.\n- **Batch instead of looping.** Use `/search` + `includeData=1`, `/get` with up to\n  1,000 IDs, and `bulkEntities` (≤100) rather than one call per record.\n- **Spread scheduled jobs out.** Don't have every nightly job start on the hour\n  against the same office; offset them.\n- **Back off on failure** rather than retrying immediately — retry storms are what\n  turn a blip into an outage.\n\n**Why does this spec differ from the vendor's?**\nIt's additive: everything FieldRoutes documents is here, plus corrections where\nthe vendor's docs are wrong, plus entity tags and write flags. See the caveat below.\n\n**Something looks wrong here.**\n[Open an issue](https://github.com/alecbolingbroke/docs/issues) with\nthe endpoint and what you observed. For account, key, or platform issues, go to\n**apisupport@fieldroutes.com** instead.\n\n_Doc caveats: the vendor's own docs mislabel some fields (e.g. `group.date` is last-updated, not a service date) and mark some as required that aren't. This spec corrects them._\n",
     "x-corrections-applied": true
   },
   "paths": {
@@ -273,6 +273,12 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property subscriptionIDsNoDataExported will specify the items that are not included in the resolved subscription array."
+          },
+          {
+            "name": "autoSchedule",
+            "in": "query",
+            "type": "integer",
+            "description": "Auto-schedule behavior for forecasted appointments. Values: -1 = Due Date Method, 0 = No autoSchedule, 1 = Next Appointment, >1 = Next X appointments."
           }
         ],
         "security": [
@@ -739,6 +745,42 @@
             "type": "integer",
             "description": "Capacity Estimate Value",
             "required": false
+          },
+          {
+            "name": "billingCustomSchedule",
+            "in": "query",
+            "type": "object",
+            "description": "Array of custom-schedule objects for billing. billingCustomScheduleTemplateID is ignored and billingFrequency is set to -3. Each entry: month (1-12), day (1-31), amount (decimal billing amount). Example: [{\"month\":6,\"day\":26,\"amount\":150.00},{\"month\":7,\"day\":12,\"amount\":75.00}]",
+            "required": false
+          },
+          {
+            "name": "dateAdded",
+            "in": "query",
+            "type": "string",
+            "description": "Date this subscription was sold. Defaults to current date/time on create.",
+            "required": false
+          },
+          {
+            "name": "soldDate",
+            "in": "query",
+            "type": "string",
+            "description": "Alias for dateAdded. Date this subscription was sold.",
+            "required": false
+          },
+          {
+            "name": "addInitialService",
+            "in": "query",
+            "type": "integer",
+            "description": "When 1, auto-schedules the initial appointment on initialServiceDate using the subscription's scheduling preferences.",
+            "required": false,
+            "default": 0
+          },
+          {
+            "name": "initialServiceDate",
+            "in": "query",
+            "type": "string",
+            "description": "Date to schedule the initial appointment on. Required when addInitialService=1.",
+            "required": false
           }
         ],
         "security": [
@@ -1102,6 +1144,34 @@
             "in": "query",
             "type": "object",
             "description": "Array of ticket addon objects, see ticket/createAddon for parameters",
+            "required": false
+          },
+          {
+            "name": "billingCustomSchedule",
+            "in": "query",
+            "type": "object",
+            "description": "Array of custom-schedule objects for billing. billingCustomScheduleTemplateID is ignored and billingFrequency is set to -3. Each entry: month (1-12), day (1-31), amount (decimal billing amount). Example: [{\"month\":6,\"day\":26,\"amount\":150.00},{\"month\":7,\"day\":12,\"amount\":75.00}]",
+            "required": false
+          },
+          {
+            "name": "dateAdded",
+            "in": "query",
+            "type": "string",
+            "description": "Date this subscription was sold. Defaults to current date/time on create.",
+            "required": false
+          },
+          {
+            "name": "soldDate",
+            "in": "query",
+            "type": "string",
+            "description": "Alias for dateAdded. Date this subscription was sold.",
+            "required": false
+          },
+          {
+            "name": "onHold",
+            "in": "query",
+            "type": "integer",
+            "description": "Set to 1 to place the subscription on hold, 0 to remove the hold.",
             "required": false
           }
         ],
@@ -2632,6 +2702,20 @@
             "type": "integer",
             "description": "Sets the Purple Dragon customer flag checkbox",
             "required": false
+          },
+          {
+            "name": "lotSize",
+            "in": "query",
+            "type": "integer",
+            "description": "Lot size in square feet, as stored in the customer table.",
+            "required": false
+          },
+          {
+            "name": "subSourceID",
+            "in": "query",
+            "type": "integer",
+            "description": "subSourceID for the customer (from Admin > Preferences > Customer References > Customer Sub Sources)",
+            "required": false
           }
         ],
         "security": [
@@ -3178,6 +3262,20 @@
             "type": "integer",
             "description": "Primary key to the customers table.",
             "required": true
+          },
+          {
+            "name": "lotSize",
+            "in": "query",
+            "type": "integer",
+            "description": "Lot size in square feet, as stored in the customer table.",
+            "required": false
+          },
+          {
+            "name": "subSourceID",
+            "in": "query",
+            "type": "integer",
+            "description": "subSourceID for the customer (from Admin > Preferences > Customer References > Customer Sub Sources)",
+            "required": false
           }
         ],
         "security": [
@@ -3556,6 +3654,12 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property ticketIDsNoDataExported will specify the items that are not included in the resolved ticket array."
+          },
+          {
+            "name": "isCustomProduction",
+            "in": "query",
+            "type": "integer",
+            "description": "Filter by whether productionValue was set manually (1) or is system-derived from subTotal (0)"
           }
         ],
         "security": [
@@ -4492,6 +4596,18 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property appointmentIDsNoDataExported will specify the items that are not included in the resolved appointment array."
+          },
+          {
+            "name": "welcomeChecklistCompletionMin",
+            "in": "query",
+            "type": "integer",
+            "description": "Filter appointments with Welcome Checklist completion >= this value (0-100)."
+          },
+          {
+            "name": "welcomeChecklistCompletionMax",
+            "in": "query",
+            "type": "integer",
+            "description": "Filter appointments with Welcome Checklist completion <= this value (0-100)."
           }
         ],
         "security": [
@@ -5563,6 +5679,12 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property employeeIDsNoDataExported will specify the items that are not included in the resolved employee array."
+          },
+          {
+            "name": "dateUpdatedStart",
+            "in": "query",
+            "type": "string",
+            "description": "Include employees updated on or after this datetime. Records with NULL dateUpdated are treated as '1000-01-01 00:00:00' and are included when this filter is set to '1000-01-01 00:00:00'."
           }
         ],
         "security": [
@@ -6396,6 +6518,12 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property serviceTypeIDsNoDataExported will specify the items that are not included in the resolved serviceType array."
+          },
+          {
+            "name": "templateType",
+            "in": "query",
+            "type": "string",
+            "description": "Filter by service type template classification. Accepted values: SERVICE_TYPE, SERVICE_PLAN_TYPE, SERVICE_ROUND_TYPE."
           }
         ],
         "security": [
@@ -8360,6 +8488,24 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property changelogIDsNoDataExported will specify the items that are not included in the resolved changelog array."
+          },
+          {
+            "name": "employeeIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "ID of employee who made the change"
+          },
+          {
+            "name": "dateChangedStart",
+            "in": "query",
+            "type": "string",
+            "description": "Start of date range for when changes were made"
+          },
+          {
+            "name": "dateChangedEnd",
+            "in": "query",
+            "type": "string",
+            "description": "End of date range for when changes were made"
           }
         ],
         "security": [
@@ -13942,6 +14088,13 @@
             "items": {
               "type": "integer"
             }
+          },
+          {
+            "name": "includeConveniencePayment",
+            "in": "query",
+            "type": "int",
+            "description": "Set true to include ConveniencePaymentPlan objects in payment profile results.",
+            "required": false
           }
         ],
         "security": [
@@ -13979,7 +14132,15 @@
           "application/json"
         ],
         "description": "Get paymentProfile data for single ID -- please provide a specific record ID in the URL structure.",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "includeConveniencePayment",
+            "in": "query",
+            "type": "integer",
+            "description": "Set true to include ConveniencePaymentPlan objects in payment profile results.",
+            "required": false
+          }
+        ],
         "security": [
           {
             "authenticationToken": []
@@ -14579,6 +14740,12 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property doorIDsNoDataExported will specify the items that are not included in the resolved door array."
+          },
+          {
+            "name": "dateUpdated",
+            "in": "query",
+            "type": "string",
+            "description": "Date the door was last updated"
           }
         ],
         "security": [
@@ -16182,6 +16349,18 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property additionalContactIDsNoDataExported will specify the items that are not included in the resolved additionalContact array."
+          },
+          {
+            "name": "dateUpdated",
+            "in": "query",
+            "type": "string",
+            "description": "Date the additional contact was last updated"
+          },
+          {
+            "name": "dateCreated",
+            "in": "query",
+            "type": "string",
+            "description": "Date the additional contact was created"
           }
         ],
         "security": [
@@ -16819,6 +16998,18 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property customerSourceIDsNoDataExported will specify the items that are not included in the resolved customerSource array."
+          },
+          {
+            "name": "systemReserved",
+            "in": "query",
+            "type": "integer",
+            "description": "Set as 1 if this source is system-protected and cannot be edited"
+          },
+          {
+            "name": "subSourceRequired",
+            "in": "query",
+            "type": "integer",
+            "description": "Set as 1 if a subsource is required when using this source"
           }
         ],
         "security": [
@@ -18221,6 +18412,12 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property servicePlanIDsNoDataExported will specify the items that are not included in the resolved servicePlan array."
+          },
+          {
+            "name": "autoSchedule",
+            "in": "query",
+            "type": "integer",
+            "description": "Auto-schedule behavior for forecasted appointments. Values: -1 = Due Date Method, 0 = No autoSchedule, 1 = Next Appointment, >1 = Next X appointments."
           }
         ],
         "security": [
@@ -18687,6 +18884,42 @@
             "type": "string",
             "description": "Date of last invoice for the service plan",
             "required": false
+          },
+          {
+            "name": "billingCustomSchedule",
+            "in": "query",
+            "type": "object",
+            "description": "Array of custom-schedule objects for billing. billingCustomScheduleTemplateID is ignored and billingFrequency is set to -3. Each entry: month (1-12), day (1-31), amount (decimal billing amount). Example: [{\"month\":6,\"day\":26,\"amount\":150.00},{\"month\":7,\"day\":12,\"amount\":75.00}]",
+            "required": false
+          },
+          {
+            "name": "dateAdded",
+            "in": "query",
+            "type": "string",
+            "description": "Date this subscription was sold. Defaults to current date/time on create.",
+            "required": false
+          },
+          {
+            "name": "soldDate",
+            "in": "query",
+            "type": "string",
+            "description": "Alias for dateAdded. Date this subscription was sold.",
+            "required": false
+          },
+          {
+            "name": "addInitialService",
+            "in": "query",
+            "type": "integer",
+            "description": "When 1, auto-schedules the initial appointment on initialServiceDate using the subscription's scheduling preferences.",
+            "required": false,
+            "default": 0
+          },
+          {
+            "name": "initialServiceDate",
+            "in": "query",
+            "type": "string",
+            "description": "Date to schedule the initial appointment on. Required when addInitialService=1.",
+            "required": false
           }
         ],
         "security": [
@@ -19023,6 +19256,41 @@
             "type": "integer",
             "description": "Primary key to the tickets table.",
             "required": true
+          },
+          {
+            "name": "billingCustomSchedule",
+            "in": "query",
+            "type": "object",
+            "description": "Array of custom-schedule objects for billing. billingCustomScheduleTemplateID is ignored and billingFrequency is set to -3. Each entry: month (1-12), day (1-31), amount (decimal billing amount). Example: [{\"month\":6,\"day\":26,\"amount\":150.00},{\"month\":7,\"day\":12,\"amount\":75.00}]",
+            "required": false
+          },
+          {
+            "name": "dateAdded",
+            "in": "query",
+            "type": "string",
+            "description": "Date this subscription was sold. Defaults to current date/time on create.",
+            "required": false
+          },
+          {
+            "name": "soldDate",
+            "in": "query",
+            "type": "string",
+            "description": "Alias for dateAdded. Date this subscription was sold.",
+            "required": false
+          },
+          {
+            "name": "initialCharge",
+            "in": "query",
+            "type": "number",
+            "description": "Amount to set on the initial service ticket template.",
+            "required": false
+          },
+          {
+            "name": "onHold",
+            "in": "query",
+            "type": "integer",
+            "description": "Set to 1 to place the subscription on hold, 0 to remove the hold.",
+            "required": false
           }
         ],
         "security": [
@@ -19408,6 +19676,12 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property servicePlanRoundIDsNoDataExported will specify the items that are not included in the resolved servicePlanRound array."
+          },
+          {
+            "name": "autoSchedule",
+            "in": "query",
+            "type": "integer",
+            "description": "Auto-schedule behavior for forecasted appointments. Values: -1 = Due Date Method, 0 = No autoSchedule, 1 = Next Appointment, >1 = Next X appointments."
           }
         ],
         "security": [
@@ -19691,6 +19965,24 @@
             "in": "query",
             "type": "integer",
             "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property compassCustomerIDsNoDataExported will specify the items that are not included in the resolved compassCustomer array."
+          },
+          {
+            "name": 0,
+            "in": "query",
+            "type": "o",
+            "description": ""
+          },
+          {
+            "name": 1,
+            "in": "query",
+            "type": "c",
+            "description": ""
+          },
+          {
+            "name": 2,
+            "in": "query",
+            "type": "d",
+            "description": ""
           }
         ],
         "security": [
@@ -21814,6 +22106,1643 @@
           "license"
         ],
         "x-fr-write": true
+      }
+    },
+    "/appointment/reschedule": {
+      "post": {
+        "summary": "Appointment Reschedule",
+        "operationId": "appointmentReschedule",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Reschedule an existing appointment to a new spot/time. Creates a new appointment and marks the old one as rescheduled (status -2).",
+        "parameters": [
+          {
+            "name": "appointmentID",
+            "in": "query",
+            "type": "integer",
+            "description": "appointmentID to reschedule",
+            "required": true
+          },
+          {
+            "name": "spotID",
+            "in": "query",
+            "type": "integer",
+            "description": "spotID for the new appointment",
+            "required": true
+          },
+          {
+            "name": "subscriptionID",
+            "in": "query",
+            "type": "integer",
+            "description": "subscriptionID for the new appointment. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "type": "integer",
+            "description": "Service type ID (typeID) for the appointment. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "type": "string",
+            "description": "Start Time Window. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "type": "string",
+            "description": "End Time Window. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "duration",
+            "in": "query",
+            "type": "integer",
+            "description": "Number of minutes this appointment should last. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "employeeID",
+            "in": "query",
+            "type": "integer",
+            "description": "employeeID to whom this appointment belongs. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "notes",
+            "in": "query",
+            "type": "string",
+            "description": "Appointment Notes. Defaults to the original appointment value.",
+            "required": false,
+            "default": ""
+          },
+          {
+            "name": "assignedTech",
+            "in": "query",
+            "type": "integer",
+            "description": "employeeID of the technician assigned to this appointment. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "callAhead",
+            "in": "query",
+            "type": "integer",
+            "description": "Number of minutes ahead of the appointment start time to call. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "doInterior",
+            "in": "query",
+            "type": "integer",
+            "description": "0 - unspecified, 1 - Exterior only, 2 - Interior Needed. Defaults to the original appointment value.",
+            "required": false
+          },
+          {
+            "name": "rescheduleReasonID",
+            "in": "query",
+            "type": "integer",
+            "description": "ID of the reschedule reason from the appointmentRescheduleReasons table",
+            "required": false
+          },
+          {
+            "name": "rescheduleReasonNotes",
+            "in": "query",
+            "type": "string",
+            "description": "Free text notes for the reschedule reason",
+            "required": false,
+            "default": ""
+          },
+          {
+            "name": "bypassLockedRoute",
+            "in": "query",
+            "type": "integer",
+            "description": "Ignore locked route setting and schedule anyways",
+            "required": false,
+            "default": 0
+          },
+          {
+            "name": "bypassSchedulePermission",
+            "in": "query",
+            "type": "integer",
+            "description": "Ignore api can schedule on route and schedule anyways.",
+            "required": false,
+            "default": 0
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Return the ID of the newly created (rescheduled) appointment.",
+            "schema": {
+              "$ref": "#/definitions/appointmentRescheduleResponse"
+            }
+          }
+        },
+        "tags": [
+          "appointment"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/additionalContact/update": {
+      "post": {
+        "summary": "Additional Contact Update",
+        "operationId": "additionalContactUpdate",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Update an existing additional contact",
+        "parameters": [
+          {
+            "name": "additionalContactID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of additional contact to update",
+            "required": true
+          },
+          {
+            "name": "fname",
+            "in": "query",
+            "type": "string",
+            "description": "First name",
+            "required": false
+          },
+          {
+            "name": "lname",
+            "in": "query",
+            "type": "string",
+            "description": "Last name",
+            "required": false
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "type": "string",
+            "description": "Address string",
+            "required": false
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "type": "string",
+            "description": "City string",
+            "required": false
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "type": "string",
+            "description": "2 letter state code",
+            "required": false
+          },
+          {
+            "name": "zip",
+            "in": "query",
+            "type": "string",
+            "description": "Zip code",
+            "required": false
+          },
+          {
+            "name": "phone",
+            "in": "query",
+            "type": "string",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "phone2",
+            "in": "query",
+            "type": "string",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "phoneExt",
+            "in": "query",
+            "type": "string",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "phone2Ext",
+            "in": "query",
+            "type": "string",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "smsReminders",
+            "in": "query",
+            "type": "integer",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "phoneReminders",
+            "in": "query",
+            "type": "integer",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "emailReminders",
+            "in": "query",
+            "type": "integer",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "companyName",
+            "in": "query",
+            "type": "string",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "type": "string",
+            "description": "email",
+            "required": false
+          },
+          {
+            "name": "contactType",
+            "in": "query",
+            "type": "string",
+            "description": "contact type: SERVICE, BILLING, SERVICE_BILLING, BUSINESS, TERMITE",
+            "required": false
+          },
+          {
+            "name": "additionalContactTypeID",
+            "in": "query",
+            "type": "integer",
+            "description": "",
+            "required": false
+          },
+          {
+            "name": "businessContactID",
+            "in": "query",
+            "type": "integer",
+            "description": "business contact ID",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "additionalContactID",
+            "schema": {
+              "$ref": "#/definitions/additionalContactUpdateResponse"
+            }
+          }
+        },
+        "tags": [
+          "additionalContact"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/bundleSubscription/search": {
+      "post": {
+        "summary": "Bundle Subscription Search",
+        "operationId": "bundleSubscriptionSearch",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Provide a set of parameters which will return a list of ids. There is no limit to the number of IDs this will return. You can then supply these ids to the `get` endpoint in order to retrieve bulk data. Every parameter available supports a simple value OR a powerful query object that gives you access to all basic comparators. \n\nExample: dateAdded={\"operator\":\">\",\"value\":\"2016-01-01\"}\n\nExample: dateAdded={\"operator\\\":\\\"BETWEEN\\\",\\\"value\\\":[\\\"2016-05-12\\\",\\\"2016-05-13\\\"]}\n\nAvailable operators: >, <, >=, <=, =, !=, IN, BETWEEN, LIKE, STARTSWITH, ENDSWITH, CONTAINS.\n\nEach of the search endpoints allows for an optional parameter 'includeData'. When sent, the API will additionally send the resolved objects for the first 1000 IDs. Keep in mind when using 'includeData' that if there are more than 1000 items an additional property '{entity}IDsNoDataExported' will specify the items that are not included in the resolved data array.",
+        "parameters": [
+          {
+            "name": "officeIDs",
+            "in": "query",
+            "type": "integer",
+            "description": ""
+          },
+          {
+            "name": "bundleSubscriptionIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Unique identifier for this Bundle Subscription"
+          },
+          {
+            "name": "serviceBundleTemplateIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Template ID for the bundle"
+          },
+          {
+            "name": "subscriptionIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Subscription ID associated with the bundle"
+          },
+          {
+            "name": "parentBundleIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Parent bundle ID (null for root bundles)"
+          },
+          {
+            "name": "customerIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Customer who owns the bundle subscription"
+          },
+          {
+            "name": "isBundleBilling",
+            "in": "query",
+            "type": "integer",
+            "description": "Bundle billing enabled (0 or 1)"
+          },
+          {
+            "name": "dateCreated",
+            "in": "query",
+            "type": "string",
+            "description": "Date this bundle was created"
+          },
+          {
+            "name": "dateCreatedStart",
+            "in": "query",
+            "type": "string",
+            "description": ""
+          },
+          {
+            "name": "dateCreatedEnd",
+            "in": "query",
+            "type": "string",
+            "description": ""
+          },
+          {
+            "name": "dateUpdated",
+            "in": "query",
+            "type": "string",
+            "description": "Date this bundle was last updated"
+          },
+          {
+            "name": "dateUpdatedStart",
+            "in": "query",
+            "type": "string",
+            "description": ""
+          },
+          {
+            "name": "dateUpdatedEnd",
+            "in": "query",
+            "type": "string",
+            "description": ""
+          },
+          {
+            "name": "includeData",
+            "in": "query",
+            "type": "integer",
+            "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property bundleSubscriptionIDsNoDataExported will specify the items that are not included in the resolved bundleSubscription array."
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Search bundleSubscription Response returns an array of bundleSubscriptionIDs",
+            "schema": {
+              "$ref": "#/definitions/bundleSubscriptionSearchResponse"
+            }
+          }
+        },
+        "tags": [
+          "bundleSubscription"
+        ]
+      }
+    },
+    "/bundleSubscription/get": {
+      "post": {
+        "summary": "Bundle Subscription Get Bulk",
+        "operationId": "bundleSubscriptionGetBulk",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Get Bulk data for bundleSubscription. Accepts an array of bundleSubscriptionIDs. Returns a max of 1000 records.",
+        "parameters": [
+          {
+            "name": "bundleSubscriptionIDs",
+            "in": "query",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "GetBulk Response",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/bundleSubscription"
+              }
+            }
+          }
+        },
+        "tags": [
+          "bundleSubscription"
+        ]
+      }
+    },
+    "/bundleSubscription/[id]": {
+      "post": {
+        "summary": "Bundle Subscription Get ID",
+        "operationId": "bundleSubscriptionGetID",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Get bundleSubscription data for single ID -- please provide a specific record ID in the URL structure.",
+        "parameters": [],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "GetID Response",
+            "schema": {
+              "$ref": "#/definitions/bundleSubscription"
+            }
+          }
+        },
+        "tags": [
+          "bundleSubscription"
+        ]
+      }
+    },
+    "/bundleSubscription/create": {
+      "post": {
+        "summary": "Bundle Subscription Create",
+        "operationId": "bundleSubscriptionCreate",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Create a bundle subscription linking a subscription to a bundle template",
+        "parameters": [
+          {
+            "name": "subscriptionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Subscription ID to associate with the bundle",
+            "required": true
+          },
+          {
+            "name": "serviceBundleTemplateID",
+            "in": "query",
+            "type": "integer",
+            "description": "Template ID for the bundle",
+            "required": true
+          },
+          {
+            "name": "parentBundleID",
+            "in": "query",
+            "type": "integer",
+            "description": "Parent bundle ID (null for root bundles)",
+            "required": false
+          },
+          {
+            "name": "isBundleBilling",
+            "in": "query",
+            "type": "integer",
+            "description": "Bundle billing enabled (0 or 1)",
+            "required": false,
+            "default": 0
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "bundleSubscriptionID",
+            "schema": {
+              "$ref": "#/definitions/bundleSubscriptionCreateResponse"
+            }
+          }
+        },
+        "tags": [
+          "bundleSubscription"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/bundleSubscription/update": {
+      "post": {
+        "summary": "Bundle Subscription Update",
+        "operationId": "bundleSubscriptionUpdate",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Update a bundle subscription",
+        "parameters": [
+          {
+            "name": "bundleSubscriptionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key to the bundle subscriptions table",
+            "required": true
+          },
+          {
+            "name": "serviceBundleTemplateID",
+            "in": "query",
+            "type": "integer",
+            "description": "Template ID for the bundle",
+            "required": false
+          },
+          {
+            "name": "parentBundleID",
+            "in": "query",
+            "type": "integer",
+            "description": "Parent bundle ID (null for root bundles, 0 to clear)",
+            "required": false
+          },
+          {
+            "name": "isBundleBilling",
+            "in": "query",
+            "type": "integer",
+            "description": "Bundle billing enabled (0 or 1)",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Returns the ID of the updated entity.",
+            "schema": {
+              "$ref": "#/definitions/bundleSubscriptionUpdateResponse"
+            }
+          }
+        },
+        "tags": [
+          "bundleSubscription"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/bundleSubscription/delete": {
+      "post": {
+        "summary": "Bundle Subscription Delete",
+        "operationId": "bundleSubscriptionDelete",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Delete a bundle subscription",
+        "parameters": [
+          {
+            "name": "bundleSubscriptionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key to bundle subscriptions table.",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Success status of the request.",
+            "schema": {
+              "$ref": "#/definitions/bundleSubscriptionDeleteResponse"
+            }
+          }
+        },
+        "tags": [
+          "bundleSubscription"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/search": {
+      "post": {
+        "summary": "Condition Search",
+        "operationId": "conditionSearch",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Provide a set of parameters which will return a list of ids. There is no limit to the number of IDs this will return. You can then supply these ids to the `get` endpoint in order to retrieve bulk data. Every parameter available supports a simple value OR a powerful query object that gives you access to all basic comparators. \n\nExample: dateAdded={\"operator\":\">\",\"value\":\"2016-01-01\"}\n\nExample: dateAdded={\"operator\\\":\\\"BETWEEN\\\",\\\"value\\\":[\\\"2016-05-12\\\",\\\"2016-05-13\\\"]}\n\nAvailable operators: >, <, >=, <=, =, !=, IN, BETWEEN, LIKE, STARTSWITH, ENDSWITH, CONTAINS.\n\nEach of the search endpoints allows for an optional parameter 'includeData'. When sent, the API will additionally send the resolved objects for the first 1000 IDs. Keep in mind when using 'includeData' that if there are more than 1000 items an additional property '{entity}IDsNoDataExported' will specify the items that are not included in the resolved data array.",
+        "parameters": [
+          {
+            "name": "officeIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Filter by office (via customer)"
+          },
+          {
+            "name": "conditionIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Unique identifier for the condition"
+          },
+          {
+            "name": "customerIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Customer who owns this condition"
+          },
+          {
+            "name": "structureIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Structure where condition was found"
+          },
+          {
+            "name": "conditionTypeIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Type of condition"
+          },
+          {
+            "name": "resolved",
+            "in": "query",
+            "type": "integer",
+            "description": "0=Open, 1=Resolved",
+            "default": [
+              0,
+              1
+            ]
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "type": "integer",
+            "description": "Severity: 0=Low, 1=Medium, 2=High"
+          },
+          {
+            "name": "responsibleParty",
+            "in": "query",
+            "type": "integer",
+            "description": "0=Customer, 1=Company, -1=None"
+          },
+          {
+            "name": "dateFoundStart",
+            "in": "query",
+            "type": "string",
+            "description": "Date found range start"
+          },
+          {
+            "name": "dateFoundEnd",
+            "in": "query",
+            "type": "string",
+            "description": "Date found range end"
+          },
+          {
+            "name": "dateResolvedStart",
+            "in": "query",
+            "type": "string",
+            "description": "Date resolved range start"
+          },
+          {
+            "name": "dateResolvedEnd",
+            "in": "query",
+            "type": "string",
+            "description": "Date resolved range end"
+          },
+          {
+            "name": "appointmentAdded",
+            "in": "query",
+            "type": "integer",
+            "description": "Appointment when condition was added"
+          },
+          {
+            "name": "includeData",
+            "in": "query",
+            "type": "integer",
+            "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property conditionIDsNoDataExported will specify the items that are not included in the resolved condition array."
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Search condition Response returns an array of conditionIDs",
+            "schema": {
+              "$ref": "#/definitions/conditionSearchResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ]
+      }
+    },
+    "/condition/get": {
+      "post": {
+        "summary": "Condition Get Bulk",
+        "operationId": "conditionGetBulk",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Get Bulk data for condition. Accepts an array of conditionIDs. Returns a max of 1000 records.",
+        "parameters": [
+          {
+            "name": "conditionIDs",
+            "in": "query",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "includeRecommendedServices",
+            "in": "query",
+            "type": "int",
+            "description": "Send as 1 to include recommended services for each condition.",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "GetBulk Response",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/condition"
+              }
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ]
+      }
+    },
+    "/condition/[id]": {
+      "post": {
+        "summary": "Condition Get ID",
+        "operationId": "conditionGetID",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Get condition data for single ID -- please provide a specific record ID in the URL structure.",
+        "parameters": [
+          {
+            "name": "includeRecommendedServices",
+            "in": "query",
+            "type": "integer",
+            "description": "Send as 1 to include recommended services for each condition.",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "GetID Response",
+            "schema": {
+              "$ref": "#/definitions/condition"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ]
+      }
+    },
+    "/condition/create": {
+      "post": {
+        "summary": "Condition Create",
+        "operationId": "conditionCreate",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Create a new condition",
+        "parameters": [
+          {
+            "name": "customerID",
+            "in": "query",
+            "type": "integer",
+            "description": "Customer ID the condition belongs to",
+            "required": true
+          },
+          {
+            "name": "conditionTypeID",
+            "in": "query",
+            "type": "integer",
+            "description": "Type of condition",
+            "required": false,
+            "default": 1
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "type": "string",
+            "description": "Description of the condition",
+            "required": true
+          },
+          {
+            "name": "structureID",
+            "in": "query",
+            "type": "integer",
+            "description": "Structure where condition was found",
+            "required": false
+          },
+          {
+            "name": "locationID",
+            "in": "query",
+            "type": "integer",
+            "description": "Location where condition was found",
+            "required": false
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "type": "integer",
+            "description": "Severity: 0=Low, 1=Medium, 2=High",
+            "required": false,
+            "default": 0
+          },
+          {
+            "name": "recommendation",
+            "in": "query",
+            "type": "string",
+            "description": "Recommended action",
+            "required": false,
+            "default": ""
+          },
+          {
+            "name": "responsibleParty",
+            "in": "query",
+            "type": "integer",
+            "description": "0=Customer, 1=Company, -1=None",
+            "required": false,
+            "default": 0
+          },
+          {
+            "name": "appointmentAdded",
+            "in": "query",
+            "type": "integer",
+            "description": "Appointment ID when condition was found.",
+            "required": true
+          },
+          {
+            "name": "details",
+            "in": "query",
+            "type": "string",
+            "description": "Additional details",
+            "required": false,
+            "default": ""
+          },
+          {
+            "name": "correctiveAction",
+            "in": "query",
+            "type": "string",
+            "description": "Actual action taken (for resolved conditions)",
+            "required": false,
+            "default": ""
+          },
+          {
+            "name": "note",
+            "in": "query",
+            "type": "string",
+            "description": "Internal note",
+            "required": false,
+            "default": ""
+          },
+          {
+            "name": "conditionTemplateID",
+            "in": "query",
+            "type": "integer",
+            "description": "Condition template ID. When provided, pre-fills conditionTypeID, description, severity, recommendation, and responsibleParty from the template. Explicit params override template values.",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "conditionID",
+            "schema": {
+              "$ref": "#/definitions/conditionCreateResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/update": {
+      "post": {
+        "summary": "Condition Update",
+        "operationId": "conditionUpdate",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Update an existing condition",
+        "parameters": [
+          {
+            "name": "conditionTypeID",
+            "in": "query",
+            "type": "integer",
+            "description": "Type of condition",
+            "required": false
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "type": "string",
+            "description": "Description of the condition",
+            "required": false
+          },
+          {
+            "name": "structureID",
+            "in": "query",
+            "type": "integer",
+            "description": "Structure where condition was found",
+            "required": false
+          },
+          {
+            "name": "locationID",
+            "in": "query",
+            "type": "integer",
+            "description": "Location where condition was found",
+            "required": false
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "type": "integer",
+            "description": "Severity: 0=Low, 1=Medium, 2=High",
+            "required": false
+          },
+          {
+            "name": "recommendation",
+            "in": "query",
+            "type": "string",
+            "description": "Recommended action",
+            "required": false
+          },
+          {
+            "name": "responsibleParty",
+            "in": "query",
+            "type": "integer",
+            "description": "0=Customer, 1=Company, -1=None",
+            "required": false
+          },
+          {
+            "name": "details",
+            "in": "query",
+            "type": "string",
+            "description": "Additional details",
+            "required": false
+          },
+          {
+            "name": "correctiveAction",
+            "in": "query",
+            "type": "string",
+            "description": "Actual action taken (for resolved conditions)",
+            "required": false
+          },
+          {
+            "name": "note",
+            "in": "query",
+            "type": "string",
+            "description": "Internal note",
+            "required": false
+          },
+          {
+            "name": "conditionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition to update",
+            "required": true
+          },
+          {
+            "name": "resolved",
+            "in": "query",
+            "type": "integer",
+            "description": "0=Open, 1=Resolved. Setting to 1 auto-sets dateResolved; setting to 0 clears resolution data.",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Returns the ID of the updated entity.",
+            "schema": {
+              "$ref": "#/definitions/conditionUpdateResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/delete": {
+      "post": {
+        "summary": "Condition Delete",
+        "operationId": "conditionDelete",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Delete a condition",
+        "parameters": [
+          {
+            "name": "conditionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition to delete",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Success status of the request.",
+            "schema": {
+              "$ref": "#/definitions/conditionDeleteResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/getRecommendedServices": {
+      "post": {
+        "summary": "Condition Get Recommended Services",
+        "operationId": "conditionGetRecommendedServices",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Get recommended services for a condition",
+        "parameters": [
+          {
+            "name": "conditionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Array of recommended services for the condition.",
+            "schema": {
+              "$ref": "#/definitions/conditionGetRecommendedServicesResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/createRecommendedService": {
+      "post": {
+        "summary": "Condition Create Recommended Service",
+        "operationId": "conditionCreateRecommendedService",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Add a recommended service to a condition",
+        "parameters": [
+          {
+            "name": "conditionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition",
+            "required": true
+          },
+          {
+            "name": "serviceID",
+            "in": "query",
+            "type": "integer",
+            "description": "Foreign key to serviceTypes table",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Returns true on success.",
+            "schema": {
+              "$ref": "#/definitions/conditionCreateRecommendedServiceResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/deleteRecommendedService": {
+      "post": {
+        "summary": "Condition Delete Recommended Service",
+        "operationId": "conditionDeleteRecommendedService",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Remove a recommended service from a condition",
+        "parameters": [
+          {
+            "name": "conditionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition",
+            "required": true
+          },
+          {
+            "name": "conditionServiceID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition service to remove",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Success status of the request.",
+            "schema": {
+              "$ref": "#/definitions/conditionDeleteRecommendedServiceResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/createImage": {
+      "post": {
+        "summary": "Condition Create Image",
+        "operationId": "conditionCreateImage",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Upload an image for a condition via multipart/form-data with parameter name uploadFile",
+        "parameters": [
+          {
+            "name": "conditionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition",
+            "required": true
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "type": "string",
+            "description": "Description of the image",
+            "required": false,
+            "default": ""
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Object with conditionImageID and imageLink.",
+            "schema": {
+              "$ref": "#/definitions/conditionCreateImageResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/createEncodedImage": {
+      "post": {
+        "summary": "Condition Create Encoded Image",
+        "operationId": "conditionCreateEncodedImage",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Upload an image for a condition using a Base64-encoded string",
+        "parameters": [
+          {
+            "name": "conditionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition",
+            "required": true
+          },
+          {
+            "name": "encodedFile",
+            "in": "query",
+            "type": "string",
+            "description": "Base64-encoded image data",
+            "required": true
+          },
+          {
+            "name": "filename",
+            "in": "query",
+            "type": "string",
+            "description": "Filename including extension (e.g. photo.jpg)",
+            "required": true
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "type": "string",
+            "description": "Description of the image",
+            "required": false,
+            "default": ""
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Object with conditionImageID and imageLink.",
+            "schema": {
+              "$ref": "#/definitions/conditionCreateEncodedImageResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/condition/unresolve": {
+      "post": {
+        "summary": "Condition Unresolve",
+        "operationId": "conditionUnresolve",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Unresolve a previously resolved condition",
+        "parameters": [
+          {
+            "name": "conditionID",
+            "in": "query",
+            "type": "integer",
+            "description": "Primary key of the condition to unresolve",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Success status of the request.",
+            "schema": {
+              "$ref": "#/definitions/conditionUnresolveResponse"
+            }
+          }
+        },
+        "tags": [
+          "condition"
+        ],
+        "x-fr-write": true
+      }
+    },
+    "/welcomeChecklist/search": {
+      "post": {
+        "summary": "Welcome Checklist Search",
+        "operationId": "welcomeChecklistSearch",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Provide a set of parameters which will return a list of ids. There is no limit to the number of IDs this will return. You can then supply these ids to the `get` endpoint in order to retrieve bulk data. Every parameter available supports a simple value OR a powerful query object that gives you access to all basic comparators. \n\nExample: dateAdded={\"operator\":\">\",\"value\":\"2016-01-01\"}\n\nExample: dateAdded={\"operator\\\":\\\"BETWEEN\\\",\\\"value\\\":[\\\"2016-05-12\\\",\\\"2016-05-13\\\"]}\n\nAvailable operators: >, <, >=, <=, =, !=, IN, BETWEEN, LIKE, STARTSWITH, ENDSWITH, CONTAINS.\n\nEach of the search endpoints allows for an optional parameter 'includeData'. When sent, the API will additionally send the resolved objects for the first 1000 IDs. Keep in mind when using 'includeData' that if there are more than 1000 items an additional property '{entity}IDsNoDataExported' will specify the items that are not included in the resolved data array.",
+        "parameters": [
+          {
+            "name": "officeIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Filter by office ID"
+          },
+          {
+            "name": "appointmentIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Filter by appointment ID (primary key)"
+          },
+          {
+            "name": "customerIDs",
+            "in": "query",
+            "type": "integer",
+            "description": "Filter by customer ID"
+          },
+          {
+            "name": "dateUpdatedStart",
+            "in": "query",
+            "type": "string",
+            "description": "Inclusive lower bound on dateUpdated (records with NULL dateUpdated are excluded)"
+          },
+          {
+            "name": "dateUpdatedEnd",
+            "in": "query",
+            "type": "string",
+            "description": "Inclusive upper bound on dateUpdated (records with NULL dateUpdated are excluded)"
+          },
+          {
+            "name": "includeData",
+            "in": "query",
+            "type": "integer",
+            "description": "{0,1} Sends the resolved objects for the first 1000 IDs. If there are more than 1000 items an additional property welcomeChecklistIDsNoDataExported will specify the items that are not included in the resolved welcomeChecklist array."
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Search welcomeChecklist Response returns an array of appointmentIDs",
+            "schema": {
+              "$ref": "#/definitions/welcomeChecklistSearchResponse"
+            }
+          }
+        },
+        "tags": [
+          "welcomeChecklist"
+        ]
+      }
+    },
+    "/welcomeChecklist/get": {
+      "post": {
+        "summary": "Welcome Checklist Get Bulk",
+        "operationId": "welcomeChecklistGetBulk",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Get Bulk data for welcomeChecklist. Accepts an array of appointmentIDs. Returns a max of 1000 records.",
+        "parameters": [
+          {
+            "name": "appointmentIDs",
+            "in": "query",
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        ],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "GetBulk Response",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/welcomeChecklist"
+              }
+            }
+          }
+        },
+        "tags": [
+          "welcomeChecklist"
+        ]
+      }
+    },
+    "/welcomeChecklist/[id]": {
+      "post": {
+        "summary": "Welcome Checklist Get ID",
+        "operationId": "welcomeChecklistGetID",
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "description": "Get welcomeChecklist data for single ID -- please provide a specific record ID in the URL structure.",
+        "parameters": [],
+        "security": [
+          {
+            "authenticationToken": []
+          },
+          {
+            "authenticationKey": []
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "GetID Response",
+            "schema": {
+              "$ref": "#/definitions/welcomeChecklist"
+            }
+          }
+        },
+        "tags": [
+          "welcomeChecklist"
+        ]
       }
     }
   },
@@ -28869,6 +30798,455 @@
     },
     "licenseCreateResponse": {
       "type": "integer"
+    },
+    "appointmentRescheduleResponse": {
+      "type": "integer"
+    },
+    "additionalContactUpdateResponse": {
+      "type": "integer"
+    },
+    "bundleSubscription": {
+      "type": "object",
+      "properties": {
+        "bundleSubscriptionID": {
+          "description": "Unique ID for the bundle subscription",
+          "type": "integer"
+        },
+        "serviceBundleTemplateID": {
+          "description": "Template ID for the bundle",
+          "type": "integer"
+        },
+        "subscriptionID": {
+          "description": "Subscription ID associated with the bundle",
+          "type": "integer"
+        },
+        "parentBundleID": {
+          "description": "Parent bundle ID (null for root bundles)",
+          "type": "integer"
+        },
+        "isBundleBilling": {
+          "description": "Bundle billing enabled (0 or 1)",
+          "type": "integer"
+        },
+        "dateUpdated": {
+          "description": "Date this bundle subscription was last updated",
+          "type": "string"
+        },
+        "updatedBy": {
+          "description": "Employee ID who last updated this bundle subscription",
+          "type": "integer"
+        },
+        "dateCreated": {
+          "description": "Date this bundle subscription was created",
+          "type": "string"
+        },
+        "createdBy": {
+          "description": "Employee ID who created this bundle subscription",
+          "type": "integer"
+        },
+        "templateName": {
+          "description": "Name of the bundle template",
+          "type": "string"
+        },
+        "isRemoveServicesEnabled": {
+          "description": "Whether removing services is enabled for this bundle",
+          "type": "integer"
+        },
+        "isAdditionalServicesEnabled": {
+          "description": "Whether additional services are enabled for this bundle",
+          "type": "integer"
+        },
+        "isSignatureRequired": {
+          "description": "Whether signature is required for this bundle",
+          "type": "integer"
+        },
+        "customerID": {
+          "description": "Customer ID who owns this bundle subscription",
+          "type": "integer"
+        },
+        "officeID": {
+          "description": "Office ID this bundle subscription belongs to",
+          "type": "integer"
+        },
+        "subscriptionActive": {
+          "description": "Active status of the underlying subscription",
+          "type": "integer"
+        }
+      }
+    },
+    "bundleSubscriptionSearchResponse": {
+      "type": "object",
+      "description": "The bundleSubscriptionIDs object contains an array of IDs matching the search parameters.",
+      "properties": {
+        "bundleSubscriptionIDs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "description": "unique ID for bundleSubscription"
+          }
+        }
+      }
+    },
+    "bundleSubscriptionCreateResponse": {
+      "type": "integer"
+    },
+    "bundleSubscriptionUpdateResponse": {
+      "type": "integer"
+    },
+    "bundleSubscriptionDeleteResponse": {
+      "type": "boolean"
+    },
+    "condition": {
+      "type": "object",
+      "properties": {
+        "conditionID": {
+          "description": "Unique identifier for the condition",
+          "type": "integer"
+        },
+        "structureID": {
+          "description": "Structure ID where the condition was found",
+          "type": "integer"
+        },
+        "locationID": {
+          "description": "Location ID where the condition was found",
+          "type": "integer"
+        },
+        "conditionTypeID": {
+          "description": "Type of condition",
+          "type": "integer"
+        },
+        "conditionType": {
+          "description": "Friendly name of the condition type",
+          "type": "string"
+        },
+        "customerID": {
+          "description": "Customer ID the condition belongs to",
+          "type": "integer"
+        },
+        "appointmentAdded": {
+          "description": "Appointment ID when the condition was added",
+          "type": "integer"
+        },
+        "appointmentResolved": {
+          "description": "Appointment ID when the condition was resolved",
+          "type": "integer"
+        },
+        "description": {
+          "description": "Description of the condition",
+          "type": "string"
+        },
+        "details": {
+          "description": "Additional details",
+          "type": "string"
+        },
+        "severity": {
+          "description": "Severity: 0=Low, 1=Medium, 2=High",
+          "type": "integer"
+        },
+        "recommendation": {
+          "description": "Recommended action",
+          "type": "string"
+        },
+        "correctiveAction": {
+          "description": "Actual action taken leading to resolution",
+          "type": "string"
+        },
+        "responsibleParty": {
+          "description": "0=Customer, 1=Company, -1=None",
+          "type": "integer"
+        },
+        "note": {
+          "description": "Internal note",
+          "type": "string"
+        },
+        "dateFound": {
+          "description": "Date the condition was found",
+          "type": "string"
+        },
+        "dateResolved": {
+          "description": "Date the condition was resolved",
+          "type": "string"
+        },
+        "resolved": {
+          "description": "1=Resolved, 0=Open",
+          "type": "integer"
+        },
+        "createdBy": {
+          "description": "Employee ID who created the condition",
+          "type": "integer"
+        },
+        "dateCreated": {
+          "description": "Date the condition was created",
+          "type": "string"
+        },
+        "lastUpdated": {
+          "description": "Date the condition was last updated",
+          "type": "string"
+        },
+        "updatedBy": {
+          "description": "Employee ID who last updated the condition",
+          "type": "integer"
+        },
+        "structure": {
+          "description": "Structure description",
+          "type": "string"
+        }
+      }
+    },
+    "conditionSearchResponse": {
+      "type": "object",
+      "description": "The conditionIDs object contains an array of IDs matching the search parameters.",
+      "properties": {
+        "conditionIDs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "description": "unique ID for condition"
+          }
+        }
+      }
+    },
+    "conditionCreateResponse": {
+      "type": "integer"
+    },
+    "conditionUpdateResponse": {
+      "type": "integer"
+    },
+    "conditionDeleteResponse": {
+      "type": "boolean"
+    },
+    "conditionGetRecommendedServicesResponse": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "conditionServiceID": {
+            "description": "Primary key of the condition service",
+            "type": "integer"
+          },
+          "conditionID": {
+            "description": "Foreign key to conditions table",
+            "type": "integer"
+          },
+          "serviceID": {
+            "description": "Foreign key to serviceTypes table",
+            "type": "integer"
+          },
+          "details": {
+            "description": "Details/recommendation text",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "conditionCreateRecommendedServiceResponse": {
+      "type": "boolean"
+    },
+    "conditionDeleteRecommendedServiceResponse": {
+      "type": "boolean"
+    },
+    "conditionCreateImageResponse": {
+      "type": "object",
+      "properties": {
+        "conditionImageID": {
+          "description": "Primary key of the condition image",
+          "type": "integer"
+        },
+        "imageLink": {
+          "description": "URL to the uploaded image",
+          "type": "string"
+        }
+      }
+    },
+    "conditionCreateEncodedImageResponse": {
+      "type": "object",
+      "properties": {
+        "conditionImageID": {
+          "description": "Primary key of the condition image",
+          "type": "integer"
+        },
+        "imageLink": {
+          "description": "URL to the uploaded image",
+          "type": "string"
+        }
+      }
+    },
+    "conditionUnresolveResponse": {
+      "type": "boolean"
+    },
+    "welcomeChecklist": {
+      "type": "object",
+      "properties": {
+        "appointmentID": {
+          "description": "Primary key — links to the appointment",
+          "type": "integer"
+        },
+        "customerID": {
+          "description": "Customer this checklist belongs to",
+          "type": "integer"
+        },
+        "officeID": {
+          "description": "Office this checklist belongs to",
+          "type": "integer"
+        },
+        "employeeID": {
+          "description": "Employee who completed the checklist",
+          "type": "integer"
+        },
+        "completionPercent": {
+          "description": "Percentage of checklist items completed (0-100)",
+          "type": "integer"
+        },
+        "timeCompleted": {
+          "description": "Datetime the checklist reached 100% completion",
+          "type": "string"
+        },
+        "dateUpdated": {
+          "description": "Datetime this record was last modified; NULL for records predating FR-7450",
+          "type": "string"
+        },
+        "notes": {
+          "description": "Internal notes",
+          "type": "string"
+        },
+        "notesOnInvoice": {
+          "description": "Notes printed on the invoice",
+          "type": "string"
+        },
+        "spokeWith": {
+          "description": "Name of the person spoken with during the checklist",
+          "type": "string"
+        },
+        "hasBabies": {
+          "description": "Customer environment: babies present",
+          "type": "integer"
+        },
+        "hasPets": {
+          "description": "Customer environment: pets present",
+          "type": "integer"
+        },
+        "hasGarden": {
+          "description": "Customer environment: garden present",
+          "type": "integer"
+        },
+        "hasBirds": {
+          "description": "Customer environment: birds present",
+          "type": "integer"
+        },
+        "hasFish": {
+          "description": "Customer environment: fish present",
+          "type": "integer"
+        },
+        "hasPond": {
+          "description": "Customer environment: pond present",
+          "type": "integer"
+        },
+        "followAlong": {
+          "description": "Checkbox: customer followed along during service",
+          "type": "integer"
+        },
+        "checkName": {
+          "description": "Checkbox: customer name verified",
+          "type": "integer"
+        },
+        "checkAddress": {
+          "description": "Checkbox: service address verified",
+          "type": "integer"
+        },
+        "checkEmail": {
+          "description": "Checkbox: email address verified",
+          "type": "integer"
+        },
+        "checkPhone": {
+          "description": "Checkbox: phone number verified",
+          "type": "integer"
+        },
+        "confirmInitialPrice": {
+          "description": "Checkbox: initial service price confirmed with customer",
+          "type": "integer"
+        },
+        "reviewServiceSchedule": {
+          "description": "Checkbox: service schedule reviewed with customer",
+          "type": "integer"
+        },
+        "confirmFollowUp": {
+          "description": "Checkbox: follow-up appointment confirmed",
+          "type": "integer"
+        },
+        "explainIncreasedActivity": {
+          "description": "Checkbox: increased pest activity after treatment explained",
+          "type": "integer"
+        },
+        "reviewPaymentOptions": {
+          "description": "Checkbox: payment options reviewed",
+          "type": "integer"
+        },
+        "explainNormalPrice": {
+          "description": "Checkbox: normal recurring price explained",
+          "type": "integer"
+        },
+        "areMoving": {
+          "description": "Checkbox: customer indicated they are moving",
+          "type": "integer"
+        },
+        "explain30DayNotice": {
+          "description": "Checkbox: 30-day cancellation notice explained",
+          "type": "integer"
+        },
+        "explainExterior": {
+          "description": "Checkbox: exterior-only service explained",
+          "type": "integer"
+        },
+        "explainReferral": {
+          "description": "Checkbox: referral program explained",
+          "type": "integer"
+        },
+        "customerComments": {
+          "description": "Checkbox: customer comments recorded",
+          "type": "integer"
+        },
+        "thankCustomer": {
+          "description": "Checkbox: customer thanked",
+          "type": "integer"
+        },
+        "confirmAgreement": {
+          "description": "Checkbox: service agreement confirmed",
+          "type": "integer"
+        },
+        "reviewCalendar": {
+          "description": "Checkbox: upcoming service calendar reviewed",
+          "type": "integer"
+        },
+        "specialNotes": {
+          "description": "Checkbox: special notes recorded",
+          "type": "integer"
+        },
+        "scheduleTermite": {
+          "description": "Checkbox: termite inspection scheduled",
+          "type": "integer"
+        },
+        "confirmSqft": {
+          "description": "Checkbox: square footage confirmed",
+          "type": "integer"
+        },
+        "ongoingService": {
+          "description": "Checkbox: ongoing service agreement confirmed",
+          "type": "integer"
+        }
+      }
+    },
+    "welcomeChecklistSearchResponse": {
+      "type": "object",
+      "description": "The welcomeChecklistIDs object contains an array of IDs matching the search parameters.",
+      "properties": {
+        "welcomeChecklistIDs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "description": "unique ID for welcomeChecklist"
+          }
+        }
+      }
     }
   },
   "securityDefinitions": {
@@ -28909,6 +31287,9 @@
       "name": "appointmentRescheduleReason"
     },
     {
+      "name": "bundleSubscription"
+    },
+    {
       "name": "cancellationReason"
     },
     {
@@ -28928,6 +31309,9 @@
     },
     {
       "name": "compassCustomer"
+    },
+    {
+      "name": "condition"
     },
     {
       "name": "contactType"
@@ -29069,6 +31453,9 @@
     },
     {
       "name": "unit"
+    },
+    {
+      "name": "welcomeChecklist"
     }
   ],
   "x-tagGroups": [
@@ -29083,13 +31470,15 @@
         "door",
         "knock",
         "location",
-        "unit"
+        "unit",
+        "welcomeChecklist"
       ]
     },
     {
       "name": "Subscriptions & Services",
       "tags": [
         "applicationMethod",
+        "bundleSubscription",
         "contract",
         "product",
         "servicePlan",
@@ -29135,6 +31524,7 @@
       "tags": [
         "chemical",
         "chemicalUse",
+        "condition",
         "diagram",
         "employee",
         "employeeLocation",
